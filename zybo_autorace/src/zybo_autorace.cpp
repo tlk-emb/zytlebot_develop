@@ -905,7 +905,7 @@ double detectRightLane(cv::Mat roadRoi) {
 
                     int q = road_hough.at<uchar>(BIRDSEYE_LENGTH * HEIGHT_L - 1, j);
                     if (q) {
-                        int this_dif = (i + j) / 2 - detected_line_x;
+                        int this_dif = std::abs((i + j) / 2 - detected_line_x);
                         if (this_dif < temp_dif) {
                             temp_dif = this_dif;
                             temp_detected_line = (i + j) / 2;
