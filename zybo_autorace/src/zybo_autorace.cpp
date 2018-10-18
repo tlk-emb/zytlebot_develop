@@ -840,6 +840,10 @@ double detectRightLane(cv::Mat roadRoi) {
                    ros::Duration(AVOID_ROT_TIME * 4 + AVOID_ROT_STRAIGHT * 2 + AVOID_STRAIGHT_TIME)) { //左車線と水平になるように回転
             twist.linear.x = AVOID_OBSTACLE_VEL;
             twist.angular.z = AVOID_OBSTACLE_ROT;
+        } else if (now - phaseStartTime <
+                   ros::Duration(AVOID_ROT_TIME * 4 + AVOID_ROT_STRAIGHT * 2 + AVOID_STRAIGHT_TIME + AVOID_BEFORE_STRAIGHT_MARGIN_TIME)) { //直線向く寸前に反動を消す
+            twist.linear.x = AVOID_OBSTACLE_VEL;
+            twist.angular.z = -1 * AVOID_OBSTACLE_ROT / 5;
         } else {
             changePhase("search_line");
         }
