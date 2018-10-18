@@ -315,13 +315,13 @@ public:
 
         // 俯瞰画像
 
-        birds_eye = birdsEye(base_image);
+        birds_eye = birdsEye(caliblated);
 
         cv::Mat aroundImg, aroundWhiteBinary;
-        aroundImg = birdsEyeAround(base_image);
+        aroundImg = birdsEyeAround(caliblated);
         aroundWhiteBinary = whiteBinary(aroundImg);
 
-        std::vector <cv::Vec4i> around_lines = getHoughLinesP(aroundWhiteBinary, 0, 10, 5);
+        std::vector <cv::Vec4i> around_lines = getHoughLinesP(aroundWhiteBinary, 0, 12, 5);
 
         // display = aroundWhiteBinary.clone();
 
