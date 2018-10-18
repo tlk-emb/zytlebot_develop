@@ -1259,9 +1259,10 @@ void detectObstacle(){
     void addMostDistantObject(std::string objType, int objectX, int objectY) {
         bool findObj = false;
         std::list<OBJECT>::iterator itr;
+    ros::Time now = ros::Time::now();
         for (itr = objects.begin(); itr != objects.end();) {
             OBJECT compare = *itr;
-            if (compare.objType == objType && objectY < compare.beforeY) {
+            if (compare.objType == objType && now - compare.timeStamp < ros::Duration(3.0)  && objectY < compare.beforeY && objectY > BIRDSEYE_LENGTH * 0.3) {
                 compare.beforeX = objectX;
                 compare.beforeY = objectY;
                 compare.findCnt += 1;
@@ -1284,23 +1285,11 @@ void detectObstacle(){
 // 一致する場合タイムスタンプと位置を更新し、カウントを1増やす
     void addObject(std::string objType, int objectX, int objectY) {
         bool findObj = false;
-        /*
-        for(OBJECT compare : objects) {
-          if( compare.objType == objType && (objectX > compare.beforeX - 15) && (std::abs(objectY - compare.beforeY) < 30)) {
-            compare.beforeX = objectX;
-            compare.beforeY = objectY;
-            compare.findCnt += 1;
-            compare.timeStamp = ros::Time::now();
-            findObj = true;
-            break;
-          }
-        }
-         */
+
         std::list<OBJECT>::iterator itr;
         for (itr = objects.begin(); itr != objects.end();) {
             OBJECT compare = *itr;
-            if (compare.objType == objType && (objectX > compare.beforeX - 5) &&
-                (std::abs(objectY - compare.beforeY) < 10)) {
+            if (compare.objType == objType && objectY > compare.beforeY) {
                 compare.beforeX = objectX;
                 compare.beforeY = objectY;
                 compare.findCnt += 1;
