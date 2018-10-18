@@ -1139,6 +1139,14 @@ void detectObstacle(){
         cv::inRange(hsv_image, cv::Scalar(Hue_l, Saturation_l, Lightness_l, 0),
                     cv::Scalar(Hue_h, Saturation_h, Lightness_h, 0), color_mask);
         cv::bitwise_and(image, image, result_image, color_mask);
+        /*
+        int fractionNum = cv::countNonZero(color_mask);
+        std::cout << "white nonzero = " << fractionNum << std::endl;
+        if (fractionNum < 100) {
+            Lightness_l -= 10;
+            std::cout << "now Lightness_l = " << Lightness_l << std::endl;
+        }
+        */
 
         return result_image;
     }
