@@ -96,7 +96,7 @@ class ImageConverter {
     double BURGER_MAX_LIN_VEL, BURGER_MAX_ANG_VEL, RIGHT_CURVE_START_LOST_LINE_TIME, RIGHT_CURVE_END_MARGIN_TIME, RIGHT_CURVE_END_TIME,
             RIGHT_CURVE_VEL, RIGHT_CURVE_ROT, LEFT_CURVE_END_TIME, LEFT_CURVE_END_MARGIN_TIME, LEFT_CURVE_VEL, LEFT_CURVE_ROT, LEFT_CURVE_AFTER_ROT,
             AVOID_OBSTACLE_VEL, AVOID_OBSTACLE_ROT, AVOID_ROT_TIME, AVOID_ROT_STRAIGHT, AVOID_STRAIGHT_TIME, AVOID_BEFORE_STRAIGHT_MARGIN_TIME, INTERSECTION_PREDICTION_TIME_RATIO,
-            INTERSECTION_PREDICTION_UNDER_MARGIN, INTERSECTION_CURVE_START_FLAG_RATIO, RUN_LINE, RUN_LINE_MARGIN, WIDTH_RATIO, HEIGHT_H, HEIGHT_L, INTERSECTION_STRAIGHT_TIME;
+            INTERSECTION_PREDICTION_UNDER_MARGIN, INTERSECTION_CURVE_START_FLAG_RATIO, RUN_LINE, RIGHT_CURVE_RUN_LINE, RUN_LINE_MARGIN, WIDTH_RATIO, HEIGHT_H, HEIGHT_L, INTERSECTION_STRAIGHT_TIME;
 
 
     int Hue_l, Hue_h, Saturation_l, Saturation_h, Lightness_l, Lightness_h;
@@ -210,6 +210,7 @@ public:
         INTERSECTION_PREDICTION_TIME_RATIO = (double) params["intersection_prediction_time_ratio"];
         INTERSECTION_CURVE_START_FLAG_RATIO = (double) params["intersection_curve_start_flag_ratio"];
         INTERSECTION_PREDICTION_UNDER_MARGIN = (double) params["intersection_prediction_under_margin"];
+        RIGHT_CURVE_RUN_LINE = (double) params["right_curve_run_line"];
         RUN_LINE = (double) params["run_line"];
         RUN_LINE_MARGIN = (double) params["run_line_margin"];
         WIDTH_RATIO = (double) params["width_ratio"];
@@ -862,7 +863,7 @@ double detectRightLane(cv::Mat roadRoi) {
 
         // ロボットの速度決定
         twist.linear.x = 0.2;
-        twist.angular.z = (BIRDSEYE_LENGTH * RUN_LINE - detected_line_x) / 40;
+        twist.angular.z = (BIRDSEYE_LENGTH * RIGHT_CURVE_RUN_LINE - detected_line_x) / 40;
         limitedTwistPub();
 
         // 終了処理
