@@ -96,7 +96,7 @@ class ImageConverter {
     double BURGER_MAX_LIN_VEL, BURGER_MAX_ANG_VEL, RIGHT_CURVE_START_LOST_LINE_TIME, RIGHT_CURVE_END_MARGIN_TIME, RIGHT_CURVE_END_TIME,
             RIGHT_CURVE_VEL, RIGHT_CURVE_ROT, LEFT_CURVE_END_TIME, LEFT_CURVE_END_MARGIN_TIME, LEFT_CURVE_VEL, LEFT_CURVE_ROT, LEFT_CURVE_AFTER_ROT,
             AVOID_OBSTACLE_VEL, AVOID_OBSTACLE_ROT, AVOID_ROT_TIME, AVOID_ROT_STRAIGHT, AVOID_STRAIGHT_TIME, AVOID_BEFORE_STRAIGHT_MARGIN_TIME, INTERSECTION_PREDICTION_TIME_RATIO,
-            INTERSECTION_PREDICTION_UNDER_MARGIN, INTERSECTION_CURVE_START_FLAG_RATIO, RUN_LINE, RUN_LINE_MARGIN, WIDTH_RATIO, HEIGHT_H, HEIGHT_L, INTERSECTION_STRAIGHT_TIME;
+            INTERSECTION_PREDICTION_UNDER_MARGIN, INTERSECTION_CURVE_START_FLAG_RATIO, RUN_LINE, RIGHT_CURVE_RUN_LINE, RUN_LINE_MARGIN, WIDTH_RATIO, HEIGHT_H, HEIGHT_L, INTERSECTION_STRAIGHT_TIME;
 
 
     int Hue_l, Hue_h, Saturation_l, Saturation_h, Lightness_l, Lightness_h;
@@ -210,6 +210,7 @@ public:
         INTERSECTION_PREDICTION_TIME_RATIO = (double) params["intersection_prediction_time_ratio"];
         INTERSECTION_CURVE_START_FLAG_RATIO = (double) params["intersection_curve_start_flag_ratio"];
         INTERSECTION_PREDICTION_UNDER_MARGIN = (double) params["intersection_prediction_under_margin"];
+        RIGHT_CURVE_RUN_LINE = (double) params["right_curve_run_line"];
         RUN_LINE = (double) params["run_line"];
         RUN_LINE_MARGIN = (double) params["run_line_margin"];
         WIDTH_RATIO = (double) params["width_ratio"];
@@ -314,13 +315,13 @@ public:
 
         // 俯瞰画像
 
-        birds_eye = birdsEye(base_image);
+        birds_eye = birdsEye(caliblated);
 
         cv::Mat aroundImg, aroundWhiteBinary;
-        aroundImg = birdsEyeAround(base_image);
+        aroundImg = birdsEyeAround(caliblated);
         aroundWhiteBinary = whiteBinary(aroundImg);
 
-        std::vector <cv::Vec4i> around_lines = getHoughLinesP(aroundWhiteBinary, 0, 10, 5);
+        std::vector <cv::Vec4i> around_lines = getHoughLinesP(aroundWhiteBinary, 0, 12, 5);
 
         // display = aroundWhiteBinary.clone();
 
@@ -840,6 +841,10 @@ double detectRightLane(cv::Mat roadRoi) {
                    ros::Duration(AVOID_ROT_TIME * 4 + AVOID_ROT_STRAIGHT * 2 + AVOID_STRAIGHT_TIME)) { //左車線と水平になるように回転
             twist.linear.x = AVOID_OBSTACLE_VEL;
             twist.angular.z = AVOID_OBSTACLE_ROT;
+        } else if (now - phaseStartTime <
+                   ros::Duration(AVOID_ROT_TIME * 4 + AVOID_ROT_STRAIGHT * 2 + AVOID_STRAIGHT_TIME + AVOID_BEFORE_STRAIGHT_MARGIN_TIME)) { //直線向く寸前に反動を消す
+            twist.linear.x = AVOID_OBSTACLE_VEL;
+            twist.angular.z = -1 * AVOID_OBSTACLE_ROT / 5;
         } else {
             changePhase("search_line");
         }
@@ -858,7 +863,7 @@ double detectRightLane(cv::Mat roadRoi) {
 
         // ロボットの速度決定
         twist.linear.x = 0.2;
-        twist.angular.z = (BIRDSEYE_LENGTH * RUN_LINE - detected_line_x) / 40;
+        twist.angular.z = (BIRDSEYE_LENGTH * RIGHT_CURVE_RUN_LINE - detected_line_x) / 40;
         limitedTwistPub();
 
         // 終了処理
@@ -901,7 +906,7 @@ double detectRightLane(cv::Mat roadRoi) {
 
                     int q = road_hough.at<uchar>(BIRDSEYE_LENGTH * HEIGHT_L - 1, j);
                     if (q) {
-                        int this_dif = (i + j) / 2 - detected_line_x;
+                        int this_dif = std::abs((i + j) / 2 - detected_line_x);
                         if (this_dif < temp_dif) {
                             temp_dif = this_dif;
                             temp_detected_line = (i + j) / 2;
@@ -1139,6 +1144,14 @@ void detectObstacle(){
         cv::inRange(hsv_image, cv::Scalar(Hue_l, Saturation_l, Lightness_l, 0),
                     cv::Scalar(Hue_h, Saturation_h, Lightness_h, 0), color_mask);
         cv::bitwise_and(image, image, result_image, color_mask);
+        /*
+        int fractionNum = cv::countNonZero(color_mask);
+        std::cout << "white nonzero = " << fractionNum << std::endl;
+        if (fractionNum < 100) {
+            Lightness_l -= 10;
+            std::cout << "now Lightness_l = " << Lightness_l << std::endl;
+        }
+        */
 
         return result_image;
     }
@@ -1246,9 +1259,10 @@ void detectObstacle(){
     void addMostDistantObject(std::string objType, int objectX, int objectY) {
         bool findObj = false;
         std::list<OBJECT>::iterator itr;
+    ros::Time now = ros::Time::now();
         for (itr = objects.begin(); itr != objects.end();) {
             OBJECT compare = *itr;
-            if (compare.objType == objType && objectY < compare.beforeY) {
+            if (compare.objType == objType && now - compare.timeStamp < ros::Duration(3.0)  && objectY < compare.beforeY && objectY > BIRDSEYE_LENGTH * 0.3) {
                 compare.beforeX = objectX;
                 compare.beforeY = objectY;
                 compare.findCnt += 1;
@@ -1271,23 +1285,11 @@ void detectObstacle(){
 // 一致する場合タイムスタンプと位置を更新し、カウントを1増やす
     void addObject(std::string objType, int objectX, int objectY) {
         bool findObj = false;
-        /*
-        for(OBJECT compare : objects) {
-          if( compare.objType == objType && (objectX > compare.beforeX - 15) && (std::abs(objectY - compare.beforeY) < 30)) {
-            compare.beforeX = objectX;
-            compare.beforeY = objectY;
-            compare.findCnt += 1;
-            compare.timeStamp = ros::Time::now();
-            findObj = true;
-            break;
-          }
-        }
-         */
+
         std::list<OBJECT>::iterator itr;
         for (itr = objects.begin(); itr != objects.end();) {
             OBJECT compare = *itr;
-            if (compare.objType == objType && (objectX > compare.beforeX - 5) &&
-                (std::abs(objectY - compare.beforeY) < 10)) {
+            if (compare.objType == objType && objectY > compare.beforeY) {
                 compare.beforeX = objectX;
                 compare.beforeY = objectY;
                 compare.findCnt += 1;
