@@ -135,6 +135,7 @@ class ImageConverter {
     ros::Time phaseStartTime;
     ros::Time tileUpdatedTime;
     ros::Time line_lost_time;
+    ros::Time cycleTime;
 
     // change phaseで初期化
     // bottomにオブジェクトが到達したかどうか
@@ -151,6 +152,8 @@ class ImageConverter {
 
     // カーブの次が横断歩道の場合、カーブ終了後横断歩道を認識するまで少しストップ
     bool curveAfterCrosswalk;
+
+    double mileage;
 
 
     // 加速するかしないか
@@ -248,6 +251,7 @@ public:
         phaseStartTime = ros::Time::now();
         line_lost_time = ros::Time::now();
         tileUpdatedTime = ros::Time::now();
+        cycleTime = ros::Time::now();
 
         now_phase = "straight";
 
@@ -324,6 +328,14 @@ public:
         }
         cv::Mat base_image = cv_ptr->image;
         ////////
+
+        // 走行距離を求める
+        mileage = twist.linear.x * (double)(ros::Time::now().toSec() - cycleTime.toSec());
+        std::cout << "mileage  = " << mileage << std::endl;
+
+
+        // cycleTimeの更新
+        cycleTime = ros::Time::now();
 
 
         cv::Mat hsv_image, color_mask, gray_image, birds_eye;
@@ -1381,9 +1393,10 @@ public:
 
             // 交差点がBIRDSEYE_LENGTHの3/4に到達するタイミングを推定し、到達するとintersectionCurveStartFlagRightLaneRightTを立てる
             if (obj.objType == "right_lane_right_T") {
-                double  reachCurveStartTime = (INTERSECTION_CURVE_START_FLAG_RATIO - ((double)obj.beforeY) / BIRDSEYE_LENGTH) * 4 * INTERSECTION_PREDICTION_TIME_RATIO * (0.2 / (twist.linear.x + 0.001));
-                std::cout << "右レーンTの残り時間= " << now - obj.timeStamp - ros::Duration(reachCurveStartTime) << std::endl;
-                if (now - obj.timeStamp > ros::Duration(reachCurveStartTime)) {
+                obj.beforeY = obj.beforeY - mileage * INTERSECTION_PREDICTION_TIME_RATIO;
+                std::cout << "右レーンTの残り距離= " << obj.beforeY << std::endl;
+
+                if (obj.beforeY > INTERSECTION_PREDICTION_UNDER_MARGIN) {
                     if (obj.findCnt > 1) {
                         intersectionCurveStartFlagRightLaneRightT = true;
                     }
