@@ -40,8 +40,8 @@ public:
     // オブジェクトの種類
     // obstacle, intersection, people
     std::string objType;
-    int beforeX;
-    int beforeY;
+    double beforeX;
+    double beforeY;
     int findCnt;
     ros::Time timeStamp;
 } OBJECT;
@@ -154,6 +154,7 @@ class ImageConverter {
     bool curveAfterCrosswalk;
 
     double mileage;
+    double phaseRunMileage;
 
 
     // 加速するかしないか
@@ -262,6 +263,7 @@ public:
         reachBottomLeftLaneStraightEnd = false;
         mostUnderLeftLaneLeftT = 0;
         nowIntersectionCount = 0;
+        phaseRunMileage = 0;
         intersectionCurveStartFlagRightLaneRightT = false;
         curveAfterCrosswalk = false;
 
@@ -278,7 +280,7 @@ public:
 
         //  処理した挙動をパブリッシュ
         //twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
-        twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel2", 1000);
+        twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
         // 0.1秒ごとに制御を呼び出す
         //timer = nh.createTimer(ros::Duration(0.1), &ImageConverter::timerCallback, this);
 
@@ -330,7 +332,8 @@ public:
         ////////
 
         // 走行距離を求める
-        mileage = twist.linear.x * (double)(ros::Time::now().toSec() - cycleTime.toSec());
+        mileage = twist.linear.x * (double)(ros::Time::now().toSec() - cycleTime.toSec()) * INTERSECTION_PREDICTION_TIME_RATIO;
+        phaseRunMileage += mileage;
         std::cout << "mileage  = " << mileage << std::endl;
 
 
@@ -483,6 +486,7 @@ public:
         // 前のphaseの結果によって変更される値を処理する
         now_phase = next_phase;
         phaseStartTime = ros::Time::now();
+        phaseRunMileage = 0;
         resetFlag();
     }
 
@@ -1373,7 +1377,7 @@ public:
         if (maxVal > 0.7) {
             // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
             addObject("right_lane_right_T", maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2 );
-            std::cout << "right_lane_right_T find!"<< std::endl;
+            std::cout << "right_lane_right_T find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
         }
     }
 
@@ -1393,14 +1397,15 @@ public:
 
             // 交差点がBIRDSEYE_LENGTHの3/4に到達するタイミングを推定し、到達するとintersectionCurveStartFlagRightLaneRightTを立てる
             if (obj.objType == "right_lane_right_T") {
-                obj.beforeY = obj.beforeY - mileage * INTERSECTION_PREDICTION_TIME_RATIO;
-                std::cout << "右レーンTの残り距離= " << obj.beforeY << std::endl;
+                obj.beforeY = obj.beforeY + mileage;
+                std::cout << "右レーンTの残り距離= " << 100 - obj.beforeY << std::endl;
 
-                if (obj.beforeY > INTERSECTION_PREDICTION_UNDER_MARGIN) {
+                if (obj.beforeY >100 -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
                     if (obj.findCnt > 1) {
                         intersectionCurveStartFlagRightLaneRightT = true;
                     }
                 }
+                *itr = obj;
             }
 
             // オブジェクトが下に到達する時刻を推定し、下に到達したと推定された場合アクションのためのフラグを立てる
