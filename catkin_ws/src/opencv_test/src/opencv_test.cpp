@@ -762,7 +762,7 @@ public:
             }
         } else if (tileType == 3 && differenceDirection == 3) {
             // 左カーブ
-            if (reachBottomLeftLaneLeftT) {
+            if (now - line_lost_time > ros::Duration(RIGHT_CURVE_START_LOST_LINE_TIME)) {
                 now_dir = (now_dir + 3) % 4;
                 changePhase("turn_left");
                 setNextTile();
