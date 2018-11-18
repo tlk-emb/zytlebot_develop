@@ -119,6 +119,7 @@ class ImageConverter {
     bool find_left_line;
 
     std::string now_phase;
+    std::string nextSearchObject;
 
     // 発見したオブジェクト（交差点、障害物）のリスト
     std::list <OBJECT> objects;
@@ -150,6 +151,8 @@ class ImageConverter {
     // BIRDS_EYE_LENGTHの3/4に右のT字路が到達したかどうか
     bool intersectionCurveStartFlagRightLaneRightT;
 
+    bool changePhaseFlag;
+
     // カーブの次が横断歩道の場合、カーブ終了後横断歩道を認識するまで少しストップ
     bool curveAfterCrosswalk;
 
@@ -164,10 +167,10 @@ class ImageConverter {
 
     XmlRpc::XmlRpcValue params;
 
-    cv::Mat template_img1;
-    cv::Mat template_img2;
-    cv::Mat template_img3;
-    cv::Mat template_img4;
+    cv::Mat template_right_T;
+    cv::Mat template_II;
+    cv::Mat template_curve;
+    cv::Mat template_cross;
 
     // デバッグ
     cv::Mat display;
@@ -238,10 +241,10 @@ public:
 
         std::string project_folder = (std::string)params["project_folder"] + "/image/sozai1.png";
 
-        template_img1 = cv::imread((std::string)params["project_folder"] + "/image/sozai1.png", 1);
-        template_img2 = cv::imread((std::string)params["project_folder"] + "/image/sozai1.png", 1);
-        template_img3 = cv::imread((std::string)params["project_folder"] + "/image/sozai1.png", 1);
-        template_img4 = cv::imread((std::string)params["project_folder"] + "/image/sozai1.png", 1);
+        template_right_T = cv::imread((std::string)params["project_folder"] + "/image/right_T.png", 1);
+        template_II = cv::imread((std::string)params["project_folder"] + "/image/II.png", 1);
+        template_curve = cv::imread((std::string)params["project_folder"] + "/image/curve.png", 1);
+        template_cross = cv::imread((std::string)params["project_folder"] + "/image/cross.png", 1);
 
         find_left_line = false;
 
@@ -265,6 +268,7 @@ public:
         nowIntersectionCount = 0;
         phaseRunMileage = 0;
         intersectionCurveStartFlagRightLaneRightT = false;
+        changePhaseFlag = false;
         curveAfterCrosswalk = false;
 
         acceleration = false;
@@ -384,7 +388,7 @@ public:
                 double degree_average = detectLane(left_roi);
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
-                intersectionDetectionByTemplateMatching(birds_eye, aroundWhiteBinary, template_img1);
+                intersectionDetectionByTemplateMatching(birds_eye, aroundWhiteBinary, template_right_T);
                 searchTile();
                 lineTrace(degree_average, road_white_binary);
                 limitedTwistPub();
@@ -428,12 +432,12 @@ public:
 
         double maxVal;
         cv::Mat result;
-        cv::matchTemplate(aroundWhiteBinary, template_img1, result, cv::TM_CCORR_NORMED);
+        cv::matchTemplate(aroundWhiteBinary, template_right_T, result, cv::TM_CCORR_NORMED);
         cv::imshow("matching", result);
         cv::Point maxPt;
         cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
         if (maxVal > 0.8) {
-            cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img1.cols, maxPt.y + template_img1.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
+            cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
         }
 
         for (OBJECT object : objects) {
@@ -464,7 +468,7 @@ public:
         cv::imshow("aroundWhite", aroundWhiteBinary);
         cv::imshow("birds_eye", birds_eye);
 
-        cv::imshow("sozai test", template_img1);
+        cv::imshow("sozai test", template_right_T);
 
         // cv::imshow("ROI", birds_eye_x4);
         //cv::imshow("LEFT ROI", left_roi_x4);
@@ -497,6 +501,7 @@ public:
         reachBottomRightLaneLeftT = false;
         reachBottomRightLaneRightT = false;
         intersectionCurveStartFlagRightLaneRightT = false;
+        changePhaseFlag = false;
         reachBottomLeftLaneStraightEnd = false;
         line_lost_time = ros::Time::now();
     }
@@ -1365,6 +1370,10 @@ public:
 
     /*
      * 交差点をテンプレートマッチングで検索する
+     * T字路の場合、右T(right_T)、左T(left_T)、下T(under_T)の３種類
+     * さらに、十字路(cross)、交差点()の計5種類が存在する
+     * マップデータから次の判別すべきタイルは判断できるので、判断されたタイルに適した画像を検出すればよい
+     * 判別すべき画像はnextSearchObjectで保持しておく
      */
     void intersectionDetectionByTemplateMatching(cv::Mat birds_eye, cv::Mat aroundWhiteBinary, cv::Mat template_img)
     {
@@ -1393,6 +1402,20 @@ public:
 
         for (itr = objects.begin(); itr != objects.end();) {
             OBJECT obj = *itr;
+
+            // 走行距離分Y座標を修正
+            obj.beforeY = obj.beforeY + mileage;
+
+            // オブジェクトが一定位置に見えたら曲がるフラグを立てる場合
+            if (obj.beforeY >100 -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
+                if (obj.findCnt > 1) {
+                    if (obj.objType == "change_phase_flag") {
+                        changePhaseFlag = true;
+                    }
+                    // intersectionCurveStartFlagRightLaneRightT = true;
+                }
+            }
+            *itr = obj;
 
 
             // 交差点がBIRDSEYE_LENGTHの3/4に到達するタイミングを推定し、到達するとintersectionCurveStartFlagRightLaneRightTを立てる
