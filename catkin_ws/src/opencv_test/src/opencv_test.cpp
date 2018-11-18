@@ -168,9 +168,11 @@ class ImageConverter {
     XmlRpc::XmlRpcValue params;
 
     cv::Mat template_right_T;
-    cv::Mat template_II;
+    cv::Mat template_left_T;
+    cv::Mat template_under_T;
+    cv::Mat template_crosswalk;
     cv::Mat template_curve;
-    cv::Mat template_cross;
+    cv::Mat template_intersection;
 
     // デバッグ
     cv::Mat display;
@@ -242,9 +244,11 @@ public:
         std::string project_folder = (std::string)params["project_folder"] + "/image/sozai1.png";
 
         template_right_T = cv::imread((std::string)params["project_folder"] + "/image/right_T.png", 1);
-        template_II = cv::imread((std::string)params["project_folder"] + "/image/II.png", 1);
+        template_left_T = cv::imread((std::string)params["project_folder"] + "/image/left_T.png", 1);
+        template_under_T = cv::imread((std::string)params["project_folder"] + "/image/under_T.png", 1);
+        template_crosswalk = cv::imread((std::string)params["project_folder"] + "/image/crosswalk.png", 1);
         template_curve = cv::imread((std::string)params["project_folder"] + "/image/curve.png", 1);
-        template_cross = cv::imread((std::string)params["project_folder"] + "/image/cross.png", 1);
+        template_intersection = cv::imread((std::string)params["project_folder"] + "/image/intersection.png", 1);
 
         find_left_line = false;
 
@@ -769,6 +773,7 @@ public:
             }
         } else if (tileType == 6) {
             // 横断歩道
+
             if (reachBottomRightLaneRightT) {
                 std::cout << "横断歩道発見" << std::endl;
                 resetFlag();
@@ -1503,12 +1508,25 @@ public:
     /*
      * 交差点をテンプレートマッチングで検索する
      * T字路の場合、右T(right_T)、左T(left_T)、下T(under_T)の３種類
-     * さらに、十字路(cross)、交差点()の計5種類が存在する
+     * さらに、横断歩道(crosswalk)、交差点(intersection)の計5種類が存在する
      * マップデータから次の判別すべきタイルは判断できるので、判断されたタイルに適した画像を検出すればよい
      * 判別すべき画像はnextSearchObjectで保持しておく
      */
-    void intersectionDetectionByTemplateMatching(cv::Mat birds_eye, cv::Mat aroundWhiteBinary, cv::Mat template_img)
+    void intersectionDetectionByTemplateMatching(cv::Mat birds_eye, cv::Mat aroundWhiteBinary, cv::Mat template_img, std;;string searchType)
     {
+        cv::Mat template_img;
+        if (searchType == "right_T") {
+            template_img = template_right_T;
+        } else if (searchType == "left_T") {
+            template_img = template_left_T
+        } else if (searchType == "under_T") {
+            template_img = template_under_T;
+        } else if (searchType == "crosswalk") {
+            template_img = template_crosswalk
+        } else if (searchType == "intersection") {
+            template_img = template_intersection
+        }
+
         double maxVal;
         cv::Mat result;
         cv::matchTemplate(aroundWhiteBinary, template_img, result, cv::TM_CCORR_NORMED);
@@ -1517,8 +1535,8 @@ public:
         cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
         if (maxVal > 0.7) {
             // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
-            addObject("right_lane_right_T", maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2 );
-            std::cout << "right_lane_right_T find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
+            addObject(searchType, maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2 );
+            std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
         }
     }
 
