@@ -611,7 +611,7 @@ public:
 
         return degree_average;
     }
-    
+
     /*
      * タイルは直進中(now_phase = "straight")のときみ検索する
      * タイルを見つけた時の処理は、dir（進行方角）の変更、次タイルの決定、now_phaseの変更、reachBottomObject類の初期化, 交差点ならnowIntersectionCountを進める
@@ -664,81 +664,71 @@ public:
                 changePhase("crosswalk");
                 setNextTile();
             }
-        } else if (tileType == 7) { // T字路
-            if(differenceDirection == 3) {
-                // T字路に左から入る
-                if (nextDirection == 0) { // 直進
-                    if (intersectionDetectionFlag) {
+        } else if (intersectionDetectionFlag) {
+            if (tileType == 7) { // T字路
+                if (differenceDirection == 3) {
+                    // T字路に左から入る
+                    if (nextDirection == 0) { // 直進
                         nowIntersectionCount++;
                         changePhase("straight");
                         setNextTile();
-                    }
-                } else { // 右に曲がる
-                    if (intersectionDetectionFlag) {
+
+                    } else { // 右に曲がる
                         nowIntersectionCount++;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
                         setNextTile();
+
                     }
-                }
-            } else if(differenceDirection == 0) {
-                // T字路の下から突き当りに向かって入った場合
-                if (nextDirection == 1) { // 右に曲がる
-                    if (intersectionDetectionFlag) {
+                } else if (differenceDirection == 0) {
+                    // T字路の下から突き当りに向かって入った場合
+                    if (nextDirection == 1) { // 右に曲がる
                         nowIntersectionCount++;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
                         setNextTile();
-                    }
-                } else { // 左に曲がる
-                    if (intersectionDetectionFlag) {
+
+                    } else { // 左に曲がる
                         nowIntersectionCount++;
                         now_dir = (now_dir + 3) % 4;
                         changePhase("turn_left");
                         setNextTile();
+
                     }
-                }
-            } else { // T字路に右から入った場合
-                if (nextDirection == 0){ // 直進 左車線が消えるため、特殊な動作をさせる
-                    if(intersectionDetectionFlag) {
+                } else { // T字路に右から入った場合
+                    if (nextDirection == 0) { // 直進 左車線が消えるため、特殊な動作をさせる
                         nowIntersectionCount++;
                         changePhase("intersection_straight");
                         setNextTile();
+
                     }
-                }
-                if (nextDirection == 3) { // 左に曲がる
-                    if (intersectionDetectionFlag) {
+                    if (nextDirection == 3) { // 左に曲がる
                         nowIntersectionCount++;
                         now_dir = (now_dir + 3) % 4;
                         changePhase("turn_left");
                         setNextTile();
+
                     }
+
                 }
 
-            }
-
-        } else if (tileType == 8) {
-            if (nextDirection == 1) {
-                if (intersectionDetectionFlag) {
+            } else if (tileType == 8) {
+                if (nextDirection == 1) {
                     nowIntersectionCount++;
                     std::cout << "十字路を右に曲がる" << std::endl;
                     now_dir = (now_dir + 1) % 4;
                     changePhase("turn_right");
                     setNextTile();
-                }
-            } else if (nextDirection == 3) {
-                if (intersectionDetectionFlag) {
+                } else if (nextDirection == 3) {
                     nowIntersectionCount++;
                     now_dir = (now_dir + 3) % 4;
                     changePhase("turn_left");
                     setNextTile();
                 }
             } else {
-                if (intersectionDetectionFlag) {
-                    nowIntersectionCount++;
-                    changePhase("intersection_straight");
-                    setNextTile();
-                }
+                nowIntersectionCount++;
+                changePhase("intersection_straight");
+                setNextTile();
             }
         }
     }
