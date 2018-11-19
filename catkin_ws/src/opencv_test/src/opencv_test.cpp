@@ -149,7 +149,7 @@ class ImageConverter {
     int nowIntersectionCount;
 
     // BIRDS_EYE_LENGTHの3/4に右のT字路が到達したかどうか
-    bool intersectionCurveStartFlag;
+    bool intersectionDetectionFlag;
 
     // 横断歩道の（停止線）の位置に来た時trueになる
     bool crosswalkFlag;
@@ -276,7 +276,7 @@ public:
         mostUnderLeftLaneLeftT = 0;
         nowIntersectionCount = 0;
         phaseRunMileage = 0;
-        intersectionCurveStartFlag = false;
+        intersectionDetectionFlag = false;
         curveAfterCrosswalk = false;
         crosswalkFlag = false;
 
@@ -511,7 +511,7 @@ public:
         reachBottomLeftLaneLeftT = false;
         reachBottomRightLaneLeftT = false;
         reachBottomRightLaneRightT = false;
-        intersectionCurveStartFlag = false;
+        intersectionDetectionFlag = false;
         reachBottomLeftLaneStraightEnd = false;
         crosswalkFlag = false;
         line_lost_time = ros::Time::now();
@@ -663,7 +663,7 @@ public:
                         setNextTile();
                     }
                 } else { // 右に曲がる
-                    if (intersectionCurveStartFlag) {
+                    if (intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
@@ -673,14 +673,14 @@ public:
             } else if(differenceDirection == 0) {
                 // T字路の下から突き当りに向かって入った場合
                 if (nextDirection == 1) { // 右に曲がる
-                    if (reachBottomLeftLaneLeftT) {
+                    if (intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
                         setNextTile();
                     }
                 } else { // 左に曲がる
-                    if (reachBottomLeftLaneLeftT) {
+                    if (intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         now_dir = (now_dir + 3) % 4;
                         changePhase("turn_left");
@@ -689,14 +689,14 @@ public:
                 }
             } else { // T字路に右から入った場合
                 if (nextDirection == 0){ // 直進 左車線が消えるため、特殊な動作をさせる
-                    if(reachBottomLeftLaneLeftT) {
+                    if(intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         changePhase("intersection_straight");
                         setNextTile();
                     }
                 }
                 if (nextDirection == 3) { // 左に曲がる
-                    if (reachBottomLeftLaneLeftT) {
+                    if (intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         now_dir = (now_dir + 3) % 4;
                         changePhase("turn_left");
@@ -708,7 +708,7 @@ public:
 
         } else if (tileType == 8) {
             if (nextDirection == 1) {
-                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
+                if (intersectionDetectionFlag && reachBottomLeftLaneStraightEnd) {
                     nowIntersectionCount++;
                     std::cout << "十字路を右に曲がる" << std::endl;
                     now_dir = (now_dir + 1) % 4;
@@ -716,14 +716,14 @@ public:
                     setNextTile();
                 }
             } else if (nextDirection == 3) {
-                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
+                if (intersectionDetectionFlag && reachBottomLeftLaneStraightEnd) {
                     nowIntersectionCount++;
                     now_dir = (now_dir + 3) % 4;
                     changePhase("turn_left");
                     setNextTile();
                 }
             } else {
-                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
+                if (intersectionDetectionFlag && reachBottomLeftLaneStraightEnd) {
                     nowIntersectionCount++;
                     changePhase("intersection_straight");
                     setNextTile();
@@ -778,25 +778,24 @@ public:
                 changePhase("turn_left");
                 setNextTile();
             }
-        } else if (tileType == 6) {
+        } else if (tileType == 2 || tileType == 5 || tileType == 6) {
             // 横断歩道
-
-            if (reachBottomRightLaneRightT) {
+            if (crosswalkFlag) {
                 std::cout << "横断歩道発見" << std::endl;
-                resetFlag();
+                changePhase("crosswalk");
                 setNextTile();
             }
         } else if (tileType == 7) { // T字路
             if(differenceDirection == 3) {
                 // T字路に左から入る
                 if (nextDirection == 0) { // 直進
-                    if (reachBottomRightLaneRightT) {
+                    if (intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         changePhase("straight");
                         setNextTile();
                     }
                 } else { // 右に曲がる
-                    if (intersectionCurveStartFlag) {
+                    if (intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
@@ -806,14 +805,14 @@ public:
             } else if(differenceDirection == 0) {
                 // T字路の下から突き当りに向かって入った場合
                 if (nextDirection == 1) { // 右に曲がる
-                    if (reachBottomLeftLaneLeftT) {
+                    if (intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
                         setNextTile();
                     }
                 } else { // 左に曲がる
-                    if (reachBottomLeftLaneLeftT) {
+                    if (intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         now_dir = (now_dir + 3) % 4;
                         changePhase("turn_left");
@@ -822,14 +821,14 @@ public:
                 }
             } else { // T字路に右から入った場合
                 if (nextDirection == 0){ // 直進 左車線が消えるため、特殊な動作をさせる
-                    if(reachBottomLeftLaneLeftT) {
+                    if(intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         changePhase("intersection_straight");
                         setNextTile();
                     }
                 }
                 if (nextDirection == 3) { // 左に曲がる
-                    if (reachBottomLeftLaneLeftT) {
+                    if (intersectionDetectionFlag) {
                         nowIntersectionCount++;
                         now_dir = (now_dir + 3) % 4;
                         changePhase("turn_left");
@@ -841,7 +840,7 @@ public:
 
         } else if (tileType == 8) {
             if (nextDirection == 1) {
-                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
+                if (intersectionDetectionFlag) {
                     nowIntersectionCount++;
                     std::cout << "十字路を右に曲がる" << std::endl;
                     now_dir = (now_dir + 1) % 4;
@@ -849,14 +848,14 @@ public:
                     setNextTile();
                 }
             } else if (nextDirection == 3) {
-                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
+                if (intersectionDetectionFlag) {
                     nowIntersectionCount++;
                     now_dir = (now_dir + 3) % 4;
                     changePhase("turn_left");
                     setNextTile();
                 }
             } else {
-                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
+                if (intersectionDetectionFlag) {
                     nowIntersectionCount++;
                     changePhase("intersection_straight");
                     setNextTile();
@@ -905,51 +904,48 @@ public:
 
             // カーブの後はcurveAfterCrosswalkがtrueになっているので、直後のnextTileが横断歩道の時のみtrueのまま
             // 別の場合はcurveAfterCrosswalkをfalseにする
-            if (nextTile == 6) {
+            if (nextTile == 2 || nextTile == 5 || nextTile == 6 || nextTile == 7 || nextTile == 8) {
                 find_tile = true;
-            } else if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
-                find_tile = true;
-                curveAfterCrosswalk = false;
-            } else {
-                curveAfterCrosswalk = false;
-            }
-
-
-            // タイルの種類 1~8がそれぞれFPTのroad meshに対応
-            int tileType = map_data[next_tile_y][next_tile_x][0];
-
-            // タイルの回転 1が画像通りで0~3で表している
-            int tileRot = map_data[next_tile_y][next_tile_x][1];
-
-            // タイルと入射角の差　どの方角からタイルに侵入するかを判別
-            int differenceDirection = (tileRot - now_dir + 4) % 4;
-
-            if (tileType == 6) {
-                // 横断歩道
-                searchType = "crosswalk";
-            } else if (tileType == 7) { // T字路
-                if(differenceDirection == 3) {
-                    // T字路に左から入る
-                    searchType = "right_T";
-                } else if(differenceDirection == 0) {
-                    // T字路の下から突き当りに向かって入った場合
-                    searchType = "under_T";
-                } else {
-                    // T字路に右から入った場合
-                    searchType = "left_T";
-                }
-
-            } else if (tileType == 8) {
-                searchType = "intersection";
             }
         }
 
         // next_tileの更新
         next_tile_x = next_x;
         next_tile_y = next_y;
+
         std::cout << "next tile " << next_x << " " << next_y << "   type=" << map_data[next_y][next_x][0] << std::endl;
         std::cout << "now dir  " << now_dir << std::endl;
 
+        // searchTypeの更新
+        // タイルの種類 1~8がそれぞれFPTのroad meshに対応
+        int tileType = map_data[next_tile_y][next_tile_x][0];
+
+        // タイルの回転 1が画像通りで0~3で表している
+        int tileRot = map_data[next_tile_y][next_tile_x][1];
+
+        // タイルと入射角の差　どの方角からタイルに侵入するかを判別
+        int differenceDirection = (tileRot - now_dir + 4) % 4;
+
+        if (tileType == 2 || tileType == 5 || tileType == 6) {
+            // 横断歩道
+            searchType = "crosswalk";
+        } else if (tileType == 7) { // T字路
+            if(differenceDirection == 3) {
+                // T字路に左から入る
+                searchType = "right_T";
+            } else if(differenceDirection == 0) {
+                // T字路の下から突き当りに向かって入った場合
+                searchType = "under_T";
+            } else {
+                // T字路に右から入った場合
+                searchType = "left_T";
+            }
+
+        } else if (tileType == 8) {
+            searchType = "intersection";
+        } else {
+            searchType = "";
+        }
     }
     /////////実際に動かす関数//////////////////
 
@@ -1608,7 +1604,7 @@ public:
             if (obj.beforeY >100 -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
                 if (obj.findCnt > 1) {
                     if (obj.objType == "right_T" || obj.objType == "left_T" || obj.objType == "under_T" || obj.objType == "intersection") {
-                        intersectionCurveStartFlag = true;
+                        intersectionDetectionFlag = true;
                     }
 
                     if (obj.objType == "crosswalk") {
