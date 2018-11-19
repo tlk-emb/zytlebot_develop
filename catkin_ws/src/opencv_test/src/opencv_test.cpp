@@ -165,6 +165,9 @@ class ImageConverter {
     // 加速するかしないか
     bool acceleration;
 
+    // テンプレートマッチングで探す形
+    std::string searchType;
+
     int mostUnderLeftLaneLeftT;
 
     XmlRpc::XmlRpcValue params;
@@ -276,6 +279,8 @@ public:
         intersectionCurveStartFlag = false;
         curveAfterCrosswalk = false;
         crosswalkFlag = false;
+
+        searchType == "";
 
         acceleration = false;
 
@@ -394,7 +399,7 @@ public:
                 double degree_average = detectLane(left_roi);
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
-                intersectionDetectionByTemplateMatching(aroundWhiteBinary, template_right_T);
+                intersectionDetectionByTemplateMatching(aroundWhiteBinary);
                 searchTile();
                 lineTrace(degree_average, road_white_binary);
                 limitedTwistPub();
@@ -909,6 +914,34 @@ public:
                 curveAfterCrosswalk = false;
             }
 
+
+            // タイルの種類 1~8がそれぞれFPTのroad meshに対応
+            int tileType = map_data[next_tile_y][next_tile_x][0];
+
+            // タイルの回転 1が画像通りで0~3で表している
+            int tileRot = map_data[next_tile_y][next_tile_x][1];
+
+            // タイルと入射角の差　どの方角からタイルに侵入するかを判別
+            int differenceDirection = (tileRot - now_dir + 4) % 4;
+
+            if (tileType == 6) {
+                // 横断歩道
+                searchType = "crosswalk";
+            } else if (tileType == 7) { // T字路
+                if(differenceDirection == 3) {
+                    // T字路に左から入る
+                    searchType = "right_T";
+                } else if(differenceDirection == 0) {
+                    // T字路の下から突き当りに向かって入った場合
+                    searchType = "under_T";
+                } else {
+                    // T字路に右から入った場合
+                    searchType = "left_T";
+                }
+
+            } else if (tileType == 8) {
+                searchType = "intersection";
+            }
         }
 
         // next_tileの更新
@@ -1514,7 +1547,7 @@ public:
      * マップデータから次の判別すべきタイルは判断できるので、判断されたタイルに適した画像を検出すればよい
      * 判別すべき画像はnextSearchObjectで保持しておく
      */
-    void intersectionDetectionByTemplateMatching(cv::Mat aroundWhiteBinary, cv::Mat template_img, std;;string searchType)
+    void intersectionDetectionByTemplateMatching(cv::Mat aroundWhiteBinary)
     {
         cv::Mat template_img;
 
@@ -1533,21 +1566,25 @@ public:
             searchRightX = BIRDSEYE_LENGTH * 2;
         } else if (searchType == "intersection") {
             template_img = template_intersection;
+        } else {
+            template_img = NULL;
         }
 
         double maxVal;
         cv::Mat result;
 
-        cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
+        if (template_img != NULL) {
+            cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
 
-        cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
-        cv::imshow("matching", result);
-        cv::Point maxPt;
-        cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
-        if (maxVal > 0.7) {
-            // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
-            addObject(searchType, searchLeftX + maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2 );
-            std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
+            cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
+            cv::imshow("matching", result);
+            cv::Point maxPt;
+            cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
+            if (maxVal > 0.7) {
+                // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
+                addObject(searchType, searchLeftX + maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2);
+                std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
+            }
         }
     }
 
