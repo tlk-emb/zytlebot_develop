@@ -69,16 +69,6 @@ int map_data[7][5][2] = {{{3, 0}, {4, 0}, {7, 2}, {4, 0}, {3, 1}},
 int intersectionDir[100] = {0};
 
 /*
-now_phaseについて
-0なら直線検出モード
-1なら右カーブ検出決め打ち移動状態
-2なら左カーブ検出
-3ならカーブ終了処理中直線検出以降状態（緩やかにカーブをやめて直線モードに移行）
-4なら障害物検知状態
-5なら信号検知状態
-*/
-
-/*
  * TODO
  * 右カーブ直後の横断歩道の認識が苦手なため、afterCurveSkipフラグによってスキップさせている
  */
@@ -421,16 +411,9 @@ public:
         } else if (now_phase == "intersection_straight") {
             intersectionStraight(road_clone);
             limitedTwistPub();
+        } else if (now_phase == "crosswalk") {
+            crosswalkRedStop();
         }
-
-        /*
-        else if ("detect_right_line")
-        {
-
-        } else if ("start_calibration")
-        {
-        }
-         */
 
         // ---------------controller end----------------
 
@@ -516,47 +499,6 @@ public:
         crosswalkFlag = false;
         line_lost_time = ros::Time::now();
     }
-
-    /*
-    // 右の直線と左のleftTの直線を検出
-    // 中央かどうかで別々に
-    // 中央を走るように
-    double detectRightLane(cv::Mat roadRoi) {
-        std::vector <cv::Vec4i> left_lines = getHoughLinesP(roadRoi, 0, 10, 5);
-
-        int rightLineSumX = 0;
-        int rightLineSumY = 0;
-        int rightLineCnt = 0;
-
-        int leftLineSumX = 0;
-        int leftLineSumY = 0:
-        int leftLineCnt = 0;
-
-        for (int i = 0; i < lines.size(); i++) {
-            STRAIGHT right_line = toStraightStruct(lines[i]);
-            // 垂直に近い
-            if (right_line.degree > -20 && right_line.degree < 20) {
-                if (lines[i][2] > BIRDSEYE_LENGTH * 0.5) {
-
-                    // デ                    バッグ
-                    cv::line(roadRoi, cv::Point(lines[i][0], lines[i][1]),
-                             cv::Point(lines[i][2], lines[i][3]), cv::Scalar(0, 255, 0), 3, 8);
-                    cv::line(roadRoi, cv::Point(lines[j][0], lines[j][1]),
-                             cv::Point(lines[j][2], lines[j][3]), cv::Scalar(0, 255, 0), 3, 8);
-                }
-            }
-        }
-
-        if (find_left_line) {
-            addMostDistantObject("left_lane_end", mostDistantX, mostDistantY); // 左車線の最も遠い点を直線の終点として保持しておく
-            reachBottomLeftLaneStraightEnd = false;
-            line_lost_time = ros::Time::now();
-            degree_average = degree_average_sum / average_cnt;
-        }
-
-        return degree_average;
-    }
-     */
 
     // 左車線について
     // 角度平均をとり、全体の角度が垂直になるようにする
@@ -817,6 +759,14 @@ public:
         }
     }
     /////////実際に動かす関数//////////////////
+
+    // 5秒ストップ
+    void crosswalkRedStop() {
+        ros::Time now = ros::Time::now();
+        if (now - phaseStartTime >  ros::Duration(5.0)) {
+            changePhase("straight");
+        }
+    }
 
     // 直線
     // 傾きからまっすぐ走らせる
