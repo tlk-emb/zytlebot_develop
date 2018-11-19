@@ -149,9 +149,11 @@ class ImageConverter {
     int nowIntersectionCount;
 
     // BIRDS_EYE_LENGTHの3/4に右のT字路が到達したかどうか
-    bool intersectionCurveStartFlagRightLaneRightT;
+    bool intersectionCurveStartFlag;
 
-    bool changePhaseFlag;
+    // 横断歩道の（停止線）の位置に来た時trueになる
+    bool crosswalkFlag;
+
 
     // カーブの次が横断歩道の場合、カーブ終了後横断歩道を認識するまで少しストップ
     bool curveAfterCrosswalk;
@@ -271,9 +273,9 @@ public:
         mostUnderLeftLaneLeftT = 0;
         nowIntersectionCount = 0;
         phaseRunMileage = 0;
-        intersectionCurveStartFlagRightLaneRightT = false;
-        changePhaseFlag = false;
+        intersectionCurveStartFlag = false;
         curveAfterCrosswalk = false;
+        crosswalkFlag = false;
 
         acceleration = false;
 
@@ -392,7 +394,7 @@ public:
                 double degree_average = detectLane(left_roi);
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
-                intersectionDetectionByTemplateMatching(birds_eye, aroundWhiteBinary, template_right_T);
+                intersectionDetectionByTemplateMatching(aroundWhiteBinary, template_right_T);
                 searchTile();
                 lineTrace(degree_average, road_white_binary);
                 limitedTwistPub();
@@ -504,9 +506,9 @@ public:
         reachBottomLeftLaneLeftT = false;
         reachBottomRightLaneLeftT = false;
         reachBottomRightLaneRightT = false;
-        intersectionCurveStartFlagRightLaneRightT = false;
-        changePhaseFlag = false;
+        intersectionCurveStartFlag = false;
         reachBottomLeftLaneStraightEnd = false;
+        crosswalkFlag = false;
         line_lost_time = ros::Time::now();
     }
 
@@ -656,7 +658,7 @@ public:
                         setNextTile();
                     }
                 } else { // 右に曲がる
-                    if (intersectionCurveStartFlagRightLaneRightT) {
+                    if (intersectionCurveStartFlag) {
                         nowIntersectionCount++;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
@@ -701,7 +703,7 @@ public:
 
         } else if (tileType == 8) {
             if (nextDirection == 1) {
-                if (intersectionCurveStartFlagRightLaneRightT && reachBottomLeftLaneStraightEnd) {
+                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
                     nowIntersectionCount++;
                     std::cout << "十字路を右に曲がる" << std::endl;
                     now_dir = (now_dir + 1) % 4;
@@ -709,14 +711,14 @@ public:
                     setNextTile();
                 }
             } else if (nextDirection == 3) {
-                if (intersectionCurveStartFlagRightLaneRightT && reachBottomLeftLaneStraightEnd) {
+                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
                     nowIntersectionCount++;
                     now_dir = (now_dir + 3) % 4;
                     changePhase("turn_left");
                     setNextTile();
                 }
             } else {
-                if (intersectionCurveStartFlagRightLaneRightT && reachBottomLeftLaneStraightEnd) {
+                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
                     nowIntersectionCount++;
                     changePhase("intersection_straight");
                     setNextTile();
@@ -789,7 +791,7 @@ public:
                         setNextTile();
                     }
                 } else { // 右に曲がる
-                    if (intersectionCurveStartFlagRightLaneRightT) {
+                    if (intersectionCurveStartFlag) {
                         nowIntersectionCount++;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
@@ -834,7 +836,7 @@ public:
 
         } else if (tileType == 8) {
             if (nextDirection == 1) {
-                if (intersectionCurveStartFlagRightLaneRightT && reachBottomLeftLaneStraightEnd) {
+                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
                     nowIntersectionCount++;
                     std::cout << "十字路を右に曲がる" << std::endl;
                     now_dir = (now_dir + 1) % 4;
@@ -842,14 +844,14 @@ public:
                     setNextTile();
                 }
             } else if (nextDirection == 3) {
-                if (intersectionCurveStartFlagRightLaneRightT && reachBottomLeftLaneStraightEnd) {
+                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
                     nowIntersectionCount++;
                     now_dir = (now_dir + 3) % 4;
                     changePhase("turn_left");
                     setNextTile();
                 }
             } else {
-                if (intersectionCurveStartFlagRightLaneRightT && reachBottomLeftLaneStraightEnd) {
+                if (intersectionCurveStartFlag && reachBottomLeftLaneStraightEnd) {
                     nowIntersectionCount++;
                     changePhase("intersection_straight");
                     setNextTile();
@@ -1512,30 +1514,39 @@ public:
      * マップデータから次の判別すべきタイルは判断できるので、判断されたタイルに適した画像を検出すればよい
      * 判別すべき画像はnextSearchObjectで保持しておく
      */
-    void intersectionDetectionByTemplateMatching(cv::Mat birds_eye, cv::Mat aroundWhiteBinary, cv::Mat template_img, std;;string searchType)
+    void intersectionDetectionByTemplateMatching(cv::Mat aroundWhiteBinary, cv::Mat template_img, std;;string searchType)
     {
         cv::Mat template_img;
+
+        // Xの領域を区切る
+        int searchLeftX = (int)(BIRDSEYE_LENGTH * 1.5);
+
         if (searchType == "right_T") {
             template_img = template_right_T;
         } else if (searchType == "left_T") {
-            template_img = template_left_T
+            template_img = template_left_T;
         } else if (searchType == "under_T") {
             template_img = template_under_T;
         } else if (searchType == "crosswalk") {
-            template_img = template_crosswalk
+            template_img = template_crosswalk;
+            searchLeftX = BIRDSEYE_LENGTH * 1;
+            searchRightX = BIRDSEYE_LENGTH * 2;
         } else if (searchType == "intersection") {
-            template_img = template_intersection
+            template_img = template_intersection;
         }
 
         double maxVal;
         cv::Mat result;
-        cv::matchTemplate(aroundWhiteBinary, template_img, result, cv::TM_CCORR_NORMED);
+
+        cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
+
+        cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
         cv::imshow("matching", result);
         cv::Point maxPt;
         cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
         if (maxVal > 0.7) {
             // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
-            addObject(searchType, maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2 );
+            addObject(searchType, searchLeftX + maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2 );
             std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
         }
     }
@@ -1556,26 +1567,29 @@ public:
             // 走行距離分Y座標を修正
             obj.beforeY = obj.beforeY + mileage;
 
-            // オブジェクトが一定位置に見えたら曲がるフラグを立てる場合
+            // オブジェクトが一定位置に見えたら曲がる(止まる)フラグを立てる場合
             if (obj.beforeY >100 -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
                 if (obj.findCnt > 1) {
-                    if (obj.objType == "change_phase_flag") {
-                        changePhaseFlag = true;
+                    if (obj.objType == "right_T" || obj.objType == "left_T" || obj.objType == "under_T" || obj.objType == "intersection") {
+                        intersectionCurveStartFlag = true;
                     }
-                    // intersectionCurveStartFlagRightLaneRightT = true;
+
+                    if (obj.objType == "crosswalk") {
+                        crosswalkFlag = true;
+                    }
                 }
             }
             *itr = obj;
 
 
-            // 交差点がBIRDSEYE_LENGTHの3/4に到達するタイミングを推定し、到達するとintersectionCurveStartFlagRightLaneRightTを立てる
+            // 交差点がBIRDSEYE_LENGTHの3/4に到達するタイミングを推定し、到達するとintersectionCurveStartFlagを立てる
             if (obj.objType == "right_lane_right_T") {
                 obj.beforeY = obj.beforeY + mileage;
                 std::cout << "右レーンTの残り距離= " << 100 - obj.beforeY << std::endl;
 
                 if (obj.beforeY >100 -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
                     if (obj.findCnt > 1) {
-                        intersectionCurveStartFlagRightLaneRightT = true;
+                        intersectionCurveStartFlag = true;
                     }
                 }
                 *itr = obj;
