@@ -1582,19 +1582,6 @@ public:
             *itr = obj;
 
 
-            // 交差点がBIRDSEYE_LENGTHの3/4に到達するタイミングを推定し、到達するとintersectionCurveStartFlagを立てる
-            if (obj.objType == "right_lane_right_T") {
-                obj.beforeY = obj.beforeY + mileage;
-                std::cout << "右レーンTの残り距離= " << 100 - obj.beforeY << std::endl;
-
-                if (obj.beforeY >100 -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
-                    if (obj.findCnt > 1) {
-                        intersectionCurveStartFlag = true;
-                    }
-                }
-                *itr = obj;
-            }
-
             // オブジェクトが下に到達する時刻を推定し、下に到達したと推定された場合アクションのためのフラグを立てる
             // タイルを進める、左に曲がる等をsearchTile()で行う
             double  reachBottomTime = ((1 - ((double)obj.beforeY) / BIRDSEYE_LENGTH) * 4  + INTERSECTION_PREDICTION_UNDER_MARGIN) * INTERSECTION_PREDICTION_TIME_RATIO * (0.2 / (twist.linear.x + 0.001));
