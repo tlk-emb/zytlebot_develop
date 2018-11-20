@@ -300,6 +300,8 @@ public:
         twist.angular.y = 0.0;
         twist.angular.z = 0.0;
         limitedTwistPub();
+
+        setSearchType();
     }
 
     // デストラクタ
@@ -727,6 +729,11 @@ public:
         std::cout << "next tile " << next_x << " " << next_y << "   type=" << map_data[next_y][next_x][0] << std::endl;
         std::cout << "now dir  " << now_dir << std::endl;
 
+        setSearchType();
+    }
+
+    // 次に探すべき模様を決定する
+    setSearchType() {
         // searchTypeの更新
         // タイルの種類 1~8がそれぞれFPTのroad meshに対応
         int tileType = map_data[next_tile_y][next_tile_x][0];
@@ -751,7 +758,6 @@ public:
                 // T字路に右から入った場合
                 searchType = "left_T";
             }
-
         } else if (tileType == 8) {
             searchType = "intersection";
         } else {
@@ -763,6 +769,10 @@ public:
     // 5秒ストップ
     void crosswalkRedStop() {
         ros::Time now = ros::Time::now();
+        twist.linear.x = 0;
+        twist.angular.z = 0;
+
+        limitedTwistPub();
         if (now - phaseStartTime >  ros::Duration(5.0)) {
             changePhase("straight");
         }
@@ -1369,6 +1379,8 @@ public:
         // Xの領域を区切る
         int searchLeftX = (int)(BIRDSEYE_LENGTH * 1.5);
 
+        bool doMathing = true;
+
         if (searchType == "right_T") {
             template_img = template_right_T;
         } else if (searchType == "left_T") {
@@ -1378,17 +1390,16 @@ public:
         } else if (searchType == "crosswalk") {
             template_img = template_crosswalk;
             searchLeftX = BIRDSEYE_LENGTH * 1;
-            searchRightX = BIRDSEYE_LENGTH * 2;
         } else if (searchType == "intersection") {
             template_img = template_intersection;
         } else {
-            template_img = NULL;
+            doMathing = false;
         }
 
         double maxVal;
         cv::Mat result;
 
-        if (template_img != NULL) {
+        if (doMathing) {
             cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
 
             cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
