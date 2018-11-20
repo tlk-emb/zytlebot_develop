@@ -169,6 +169,8 @@ class ImageConverter {
     cv::Mat template_curve;
     cv::Mat template_intersection;
 
+    cv::Mat aroundDebug;
+
     // デバッグ
     cv::Mat display;
 
@@ -358,6 +360,8 @@ public:
         aroundImg = birdsEyeAround(base_image);
         aroundWhiteBinary = whiteBinary(aroundImg);
 
+        aroundDebug = aroundWhiteBinary.clone();
+
         std::vector <cv::Vec4i> around_lines = getHoughLinesP(aroundWhiteBinary, 0, 10, 5);
 
         display = aroundWhiteBinary.clone();
@@ -407,6 +411,7 @@ public:
         } else if (now_phase == "turn_left") {
             leftTurn();
         } else if (now_phase == "turn_right") {
+            searchObject();
             determinationRightTurn();
         } else if (now_phase == "find_obs") {
             obstacleAvoidance(road_white_binary);
@@ -426,15 +431,6 @@ public:
 
         ////////////
 
-        double maxVal;
-        cv::Mat result;
-        cv::matchTemplate(aroundWhiteBinary, template_right_T, result, cv::TM_CCORR_NORMED);
-        cv::imshow("matching", result);
-        cv::Point maxPt;
-        cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
-        if (maxVal > 0.8) {
-            cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
-        }
 
         for (OBJECT object : objects) {
             if (object.objType == "right_lane_right_T") {
@@ -461,7 +457,7 @@ public:
         // ウインドウ表示
         cv::imshow("Original Image", cv_half_image);
         cv::imshow("WHITE BINARY", white_binary_x4);
-        cv::imshow("aroundWhite", aroundWhiteBinary);
+        cv::imshow("aroundWhite", aroundDebug);
         cv::imshow("birds_eye", birds_eye);
 
         cv::imshow("sozai test", template_right_T);
@@ -733,7 +729,7 @@ public:
     }
 
     // 次に探すべき模様を決定する
-    setSearchType() {
+    void setSearchType() {
         // searchTypeの更新
         // タイルの種類 1~8がそれぞれFPTのroad meshに対応
         int tileType = map_data[next_tile_y][next_tile_x][0];
@@ -1410,6 +1406,8 @@ public:
                 // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
                 addObject(searchType, searchLeftX + maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2);
                 std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
+
+                cv::rectangle(aroundDebug, cv::Point(searchLeftX + maxPt.x, maxPt.y), cv::Point(searchLeftX + maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
             }
         }
     }
