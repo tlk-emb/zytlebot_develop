@@ -411,6 +411,7 @@ public:
         } else if (now_phase == "turn_left") {
             leftTurn();
         } else if (now_phase == "turn_right") {
+            intersectionDetectionByTemplateMatching(aroundWhiteBinary);
             searchObject();
             determinationRightTurn();
         } else if (now_phase == "find_obs") {
