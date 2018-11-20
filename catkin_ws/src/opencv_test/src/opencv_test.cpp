@@ -88,7 +88,7 @@ class ImageConverter {
     double BURGER_MAX_LIN_VEL, BURGER_MAX_ANG_VEL, RIGHT_CURVE_START_LOST_LINE_TIME, RIGHT_CURVE_END_MARGIN_TIME, RIGHT_CURVE_END_TIME,
             RIGHT_CURVE_VEL , RIGHT_CURVE_ROT , LEFT_CURVE_END_TIME , LEFT_CURVE_END_MARGIN_TIME , LEFT_CURVE_VEL , LEFT_CURVE_ROT , LEFT_CURVE_AFTER_ROT ,
             AVOID_OBSTACLE_VEL , AVOID_OBSTACLE_ROT , AVOID_ROT_TIME , AVOID_ROT_STRAIGHT , AVOID_STRAIGHT_TIME , AVOID_BEFORE_STRAIGHT_MARGIN_TIME , INTERSECTION_PREDICTION_TIME_RATIO ,
-            INTERSECTION_PREDICTION_UNDER_MARGIN , INTERSECTION_CURVE_START_FLAG_RATIO , RUN_LINE , RUN_LINE_MARGIN , WIDTH_RATIO , HEIGHT_H , HEIGHT_L, INTERSECTION_STRAIGHT_TIME;
+            CROSSWALK_UNDER_MARGIN , INTERSECTION_PREDICTION_UNDER_MARGIN , INTERSECTION_CURVE_START_FLAG_RATIO , RUN_LINE , RUN_LINE_MARGIN , WIDTH_RATIO , HEIGHT_H , HEIGHT_L, INTERSECTION_STRAIGHT_TIME;
 
 
     int Hue_l, Hue_h, Saturation_l, Saturation_h, Lightness_l, Lightness_h;
@@ -227,6 +227,7 @@ public:
         AVOID_BEFORE_STRAIGHT_MARGIN_TIME = (double)params["avoid_before_straight_margin_time"];
         INTERSECTION_PREDICTION_TIME_RATIO = (double)params["intersection_prediction_time_ratio"];
         INTERSECTION_CURVE_START_FLAG_RATIO = (double)params["intersection_curve_start_flag_ratio"];
+        CROSSWALK_UNDER_MARGIN = (double)params["crosswalk_under_margin"];
         INTERSECTION_PREDICTION_UNDER_MARGIN = (double)params["intersection_prediction_under_margin"];
         RUN_LINE = (double)params["run_line"];
         RUN_LINE_MARGIN = (double)params["run_line_margin"];
@@ -1366,7 +1367,11 @@ public:
             obj.beforeY = obj.beforeY + mileage;
 
             // オブジェクトが一定位置に見えたら曲がる(止まる)フラグを立てる場合
-            if (obj.beforeY >100 -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
+            if (obj.objType == "crosswalk") {
+                if (obj.beforeY >100 -  CROSSWALK_UNDER_MARGIN)  {
+                    crosswalkFlag = true;
+                }
+            } else if (obj.beforeY >100 -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
                 if (obj.findCnt > 1) {
                     if (obj.objType == "right_T" || obj.objType == "left_T" || obj.objType == "under_T" || obj.objType == "intersection") {
                         intersectionDetectionFlag = true;
