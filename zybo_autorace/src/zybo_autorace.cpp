@@ -440,56 +440,6 @@ public:
         }
 
         // ---------------controller end----------------
-
-        // 以下デバッグ用
-        // 画像サイズを縦横半分に変更
-
-        // updateLeftLine(road_white_binary);
-
-        ////////////
-
-
-        for (OBJECT object : objects) {
-            if (object.objType == "right_lane_right_T") {
-                cv::ellipse(road_white_binary, cv::Point(object.beforeX + BIRDSEYE_LENGTH / 2, object.beforeY),
-                            cv::Size(10, 10), 0, 0, 360, cv::Scalar(0, 200, 0), -1, 8);
-            } else if (object.objType == "left_lane_left_T" || object.objType == "right_lane_left_T") {
-                cv::ellipse(road_white_binary, cv::Point(object.beforeX + BIRDSEYE_LENGTH / 2, object.beforeY),
-                            cv::Size(10, 10), 0, 0, 360, cv::Scalar(0, 0, 200), -1, 8);
-            }
-        }
-
-
-        cv::Mat cv_half_image, birds_eye_x4, white_binary_x4, left_roi_x4, right_roi_x4, aroundImg_x4, aroundWhiteBinary_x4, red_image_x4;
-        cv::resize(base_image, cv_half_image, cv::Size(), 0.25, 0.25);
-        cv::resize(road_white_binary, white_binary_x4, cv::Size(), 4, 4);
-        cv::resize(display, aroundWhiteBinary_x4, cv::Size(), 2, 2);
-
-        // cv::resize(birds_eye, birds_eye_x4, cv::Size(), 4, 4);
-        // cv::resize(left_roi, left_roi_x4, cv::Size(), 4, 4);
-        cv::resize(road_clone, right_roi_x4, cv::Size(), 4, 4);
-        // cv::resize(aroundImg, aroundImg_x4, cv::Size(), 2, 2);
-        //cv::resize(red_image, red_image_x4, cv::Size(), 2, 2);
-
-        // ウインドウ表示
-        cv::imshow("Original Image", cv_half_image);
-        cv::imshow("WHITE BINARY", white_binary_x4);
-        cv::imshow("aroundWhite", aroundDebug);
-        cv::imshow("birds_eye", birds_eye);
-
-
-
-        // cv::imshow("ROI", birds_eye_x4);
-        //cv::imshow("LEFT ROI", left_roi_x4);
-        //cv::imshow("ROAD",  right_roi_x4);
-        // cv::imshow("road hough", road_hough);
-        //cv::imshow("center line", aroundImg_x4);
-        //cv::imshow("Red Image", red_image_x4);
-
-        cv::waitKey(3);
-
-        //エッジ画像をパブリッシュ。OpenCVからROS形式にtoImageMsg()で変換。
-        //image_pub_.publish(cv_ptr3->toImageMsg());
     }
 
 ////////////////関数//////////////////
@@ -543,12 +493,7 @@ public:
                     mostDistantX = left_lines[i][2];
                     mostDistantY = left_lines[i][3];
                 }
-
-                //デバッグ 赤線を引く
-                /*
-                cv::line(left_roi, cv::Point(left_lines[i][0], left_lines[i][1]),
-                         cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
-                         */
+                
                 degree_average_sum += left_line.degree;
                 if (most_left_middle_x > left_line.middle.x) {
                     most_left_middle_x = left_line.middle.x;
@@ -810,9 +755,6 @@ public:
             if (line.degree > -20 && line.degree < 20) {
                 averageDegreeSum += line.degree;
                 averageCnt += 1;
-                // デバッグ
-                cv::line(roadRoi, cv::Point(lines[i][0], lines[i][1]),
-                         cv::Point(lines[i][2], lines[i][3]), cv::Scalar(0, 255, 0), 3, 8);
             }
         }
 
