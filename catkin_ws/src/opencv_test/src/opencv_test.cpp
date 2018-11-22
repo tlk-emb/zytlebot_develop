@@ -390,7 +390,8 @@ public:
 
         if (now_phase == "straight") {
             ros::Time now = ros::Time::now();
-            if (now - line_lost_time > ros::Duration(4.0)) {
+            // if (now - line_lost_time > ros::Duration(4.0)) {
+            if (false) {
                 changePhase("search_line");
             } else {
                 double degree_average = detectLane(left_roi);
@@ -407,8 +408,8 @@ public:
             double degree_average = detectLane(left_roi);
             searchLine();
         } else if (now_phase == "search_right_lane_right_T") {
-            bool nowFindRightLaneRightT = intersectionDetection(around_lines, aroundWhiteBinary);
-            searchRightLaneRightT(nowFindRightLaneRightT);
+            // bool nowFindRightLaneRightT = intersectionDetection(around_lines, aroundWhiteBinary);
+            // searchRightLaneRightT(nowFindRightLaneRightT);
         } else if (now_phase == "turn_left") {
             leftTurn();
         } else if (now_phase == "turn_right") {
@@ -462,7 +463,7 @@ public:
         cv::imshow("aroundWhite", aroundDebug);
         cv::imshow("birds_eye", birds_eye);
 
-        cv::imshow("sozai test", template_right_T);
+
 
         // cv::imshow("ROI", birds_eye_x4);
         //cv::imshow("LEFT ROI", left_roi_x4);
@@ -710,12 +711,12 @@ public:
             }
 
             // road4(ただの直線)でないかチェック
-            // 今だけカーブ検索中！！！！
             int nextTile = map_data[next_y][next_x][0];
 
             // カーブの後はcurveAfterCrosswalkがtrueになっているので、直後のnextTileが横断歩道の時のみtrueのまま
             // 別の場合はcurveAfterCrosswalkをfalseにする
-            if (nextTile == 2 || nextTile == 5 || nextTile == 6 || nextTile == 7 || nextTile == 8) {
+            // if (nextTile == 2 || nextTile == 5 || nextTile == 6 || nextTile == 7 || nextTile == 8) {
+            if (nextTile == 7 || nextTile == 8) {
                 find_tile = true;
             }
         }
@@ -1311,7 +1312,7 @@ public:
         cv::Mat template_img;
 
         // Xの領域を区切る
-        int searchLeftX = (int)(BIRDSEYE_LENGTH * 1.5);
+        int searchLeftX = (int)(BIRDSEYE_LENGTH * 1);
 
         bool doMathing = true;
 
@@ -1323,20 +1324,23 @@ public:
             template_img = template_under_T;
         } else if (searchType == "crosswalk") {
             template_img = template_crosswalk;
-            searchLeftX = BIRDSEYE_LENGTH * 1;
         } else if (searchType == "intersection") {
             template_img = template_intersection;
         } else {
             doMathing = false;
         }
 
+        std::cout << "現在" << searchType << "検索中" << std::endl;
+
         double maxVal;
         cv::Mat result;
 
         if (doMathing) {
-            cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
+            cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH * 1.5, BIRDSEYE_LENGTH));
 
+            cv::imshow("sozai test", template_img);
             cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
+            cv::imshow("searchRoi", searchRoi);
             cv::imshow("matching", result);
             cv::Point maxPt;
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
