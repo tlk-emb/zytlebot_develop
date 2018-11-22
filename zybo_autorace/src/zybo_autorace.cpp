@@ -288,7 +288,7 @@ public:
         acceleration = false;
         // 歪補正の前計算
         mapR = cv::Mat::eye(3, 3, CV_64F);
-        new_camera_matrix = cv::getOptimalNewCameraMatrix(, distortion, image.size(), 1);
+        new_camera_matrix = cv::getOptimalNewCameraMatrix(camera_mtx, distortion, image.size(), 1);
         cv::initUndistortRectifyMap(camera_mtx, camera_dist, mapR, new_camera_matrix, cv::Size(640, 480), CV_32FC1, MapX, MapY);
 
         // カラー画像をサブスクライブ
