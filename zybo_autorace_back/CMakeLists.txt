@@ -170,7 +170,5 @@ include_directories(
 
 
 add_executable(zybo_autorace src/zybo_autorace.cpp)
-add_executable(yosen_autorace src/yosen_autorace.cpp)
 target_link_libraries(zybo_autorace ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
-target_link_libraries(yosen_autorace ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 add_definitions(-std=c++11)

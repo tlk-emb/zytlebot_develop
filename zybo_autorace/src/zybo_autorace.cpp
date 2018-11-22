@@ -1447,7 +1447,7 @@ int main(int argc, char **argv) {
     fs.release();
 
     // 進行方向読み込み
-    std::ifstream ifs("/home/ubuntu/catkin_ws/src/zybo_autorace/honsen2.txt");
+    std::ifstream ifs("/home/ubuntu/catkin_ws/src/zybo_autorace/honsen_dir.txt");
     std::string str;
     if (ifs.fail()) {
         std::cerr << "text file load fail" << std::endl;
