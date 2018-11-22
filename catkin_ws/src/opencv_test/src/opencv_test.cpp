@@ -341,15 +341,6 @@ public:
         cv::Mat base_image = cv_ptr->image;
         ////////
 
-        // 走行距離を求める
-        mileage = twist.linear.x * (double)(ros::Time::now().toSec() - cycleTime.toSec()) * INTERSECTION_PREDICTION_TIME_RATIO;
-        phaseRunMileage += mileage;
-        std::cout << "mileage  = " << mileage << std::endl;
-
-
-        // cycleTimeの更新
-        cycleTime = ros::Time::now();
-
 
         cv::Mat hsv_image, color_mask, gray_image, birds_eye;
 
@@ -370,6 +361,17 @@ public:
         cv::Mat road_white_binary(aroundWhiteBinary, cv::Rect(BIRDSEYE_LENGTH, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
         cv::Mat left_roi(aroundWhiteBinary, cv::Rect(BIRDSEYE_LENGTH, 0, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH));
         cv::Mat right_roi(aroundWhiteBinary, cv::Rect(BIRDSEYE_LENGTH * 1.5, 0, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH));
+
+
+        // 走行距離を求める
+        mileage = twist.linear.x * (double)(ros::Time::now().toSec() - cycleTime.toSec()) * INTERSECTION_PREDICTION_TIME_RATIO;
+        phaseRunMileage += mileage;
+        std::cout << "mileage  = " << mileage << std::endl;
+
+
+        // cycleTimeの更新
+        cycleTime = ros::Time::now();
+
 
 
         cv::Mat road_clone = road_white_binary.clone();
