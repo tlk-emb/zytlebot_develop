@@ -313,6 +313,8 @@ public:
         twist.angular.y = 0.0;
         twist.angular.z = 0.0;
         limitedTwistPub();
+        
+        setSearchType();
     }
 
     // デストラクタ
