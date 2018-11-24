@@ -1293,10 +1293,7 @@ public:
         if (doMathing) {
             cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH * 1.5, BIRDSEYE_LENGTH));
 
-            cv::imshow("sozai test", template_img);
             cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
-            cv::imshow("searchRoi", searchRoi);
-            cv::imshow("matching", result);
             cv::Point maxPt;
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
             if (maxVal > 0.7) {
