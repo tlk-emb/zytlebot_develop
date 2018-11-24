@@ -182,7 +182,7 @@ class ImageConverter {
     // デバッグ
     cv::Mat display;
     // 歪補正に使う
-    cv::Mat MapX, MapY, mapR, new_camera_matrix;
+    cv::Mat MapX, MapY, mapR;
 
 public:
     // コンストラクタ
@@ -288,8 +288,7 @@ public:
         acceleration = false;
         // 歪補正の前計算
         mapR = cv::Mat::eye(3, 3, CV_64F);
-        new_camera_matrix = cv::getOptimalNewCameraMatrix(camera_mtx, camera_dist, image.size(), 1);
-        cv::initUndistortRectifyMap(camera_mtx, camera_dist, mapR, new_camera_matrix, cv::Size(640, 480), CV_32FC1, MapX, MapY);
+        cv::initUndistortRectifyMap(camera_mtx, camera_dist, mapR, camera_mtx, cv::Size(640, 480), CV_32FC1, MapX, MapY);
 
         // カラー画像をサブスクライブ
         // if_zybo
