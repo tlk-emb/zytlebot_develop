@@ -333,7 +333,7 @@ public:
         cv::cvtColor(base_image, dstimg, cv::COLOR_YUV2BGR_YUYV);
 
         cv::Mat caliblated;
-        cv::remap(image, caliblated, MapX, MapY, cv::INTER_LINEAR);
+        cv::remap(dstimg, caliblated, MapX, MapY, cv::INTER_LINEAR);
 
         // if_pc
         /*
