@@ -158,6 +158,7 @@ class ImageConverter {
 
     double mileage;
     double phaseRunMileage;
+    double detected_angle;
 
 
     // 加速するかしないか
@@ -277,6 +278,7 @@ public:
         mostUnderLeftLaneLeftT = 0;
         nowIntersectionCount = 0;
         phaseRunMileage = 0;
+        detected_angle = 0;
         intersectionDetectionFlag = false;
         curveAfterCrosswalk = false;
         crosswalkFlag = false;
@@ -352,6 +354,7 @@ public:
         cv::Mat base_image = cv_ptr->image;
         ////////*/
 
+        detected_angle = 0;
 
         cv::Mat hsv_image, color_mask, gray_image, birds_eye;
 
@@ -425,7 +428,7 @@ public:
                 double degree_average = detectLane(left_roi);
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
-                intersectionDetectionByTemplateMatching(aroundWhiteBinary);
+                intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                 searchObject();
                 lineTrace(degree_average, road_white_binary);
                 limitedTwistPub();
@@ -1301,7 +1304,7 @@ public:
      * マップデータから次の判別すべきタイルは判断できるので、判断されたタイルに適した画像を検出すればよい
      * 判別すべき画像はnextSearchObjectで保持しておく
      */
-    void intersectionDetectionByTemplateMatching(cv::Mat aroundWhiteBinary)
+    void intersectionDetectionByTemplateMatching(cv::Mat aroundWhiteBinary, double template_angle)
     {
         cv::Mat template_img;
 
@@ -1330,9 +1333,14 @@ public:
         cv::Mat result;
 
         if (doSearch) {
+            // 傾きを元に元画像を回転
+            cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), template_angle * -0.7, 1.0);
+            cv::Mat template_rot;
+            cv::warpAffine(template_img, template_rot, affine, template_img.size(), cv::INTER_CUBIC);
+
             cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH * 1.5, BIRDSEYE_LENGTH));
 
-            cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
+            cv::matchTemplate(searchRoi, template_rot, result, cv::TM_CCORR_NORMED);
             cv::Point maxPt;
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
             std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
@@ -1349,11 +1357,11 @@ public:
         cv::Mat result;
 
         // 傾きを元に元画像を回転
-        cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), detected_angle * -1, 1.0);
+        cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), detected_angle * -0.7, 1.0);
         cv::Mat template_rot;
         cv::warpAffine(template_img, template_rot, affine, template_img.size(), cv::INTER_CUBIC);
 
-        cv::matchTemplate(aroundWhiteBinary, template_img, result, cv::TM_CCORR_NORMED);
+        cv::matchTemplate(aroundWhiteBinary, template_roi, result, cv::TM_CCORR_NORMED);
         cv::Point maxPt;
         cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
         if (maxVal > 0.75) {

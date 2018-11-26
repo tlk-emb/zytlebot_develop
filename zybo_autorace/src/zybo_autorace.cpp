@@ -404,7 +404,7 @@ public:
                 double degree_average = detectLane(left_roi);
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
-                intersectionDetectionByTemplateMatching(aroundWhiteBinary);
+                intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                 searchObject();
                 lineTrace(degree_average, road_white_binary);
                 limitedTwistPub();
@@ -420,7 +420,7 @@ public:
         } else if (now_phase == "turn_left") {
             leftTurn();
         } else if (now_phase == "turn_right") {
-            intersectionDetectionByTemplateMatching(aroundWhiteBinary);
+            intersectionDetectionByTemplateMatching(aroundWhiteBinary, 0);
             searchObject();
             determinationRightTurn();
         } else if (now_phase == "find_obs") {
@@ -488,8 +488,6 @@ public:
             line_lost_time = ros::Time::now();
             degree_average = degree_average_sum / average_cnt;
         }
-
-        detected_angle = degree_average;
         return degree_average;
     }
 
@@ -1243,14 +1241,14 @@ public:
      * マップデータから次の判別すべきタイルは判断できるので、判断されたタイルに適した画像を検出すればよい
      * 判別すべき画像はnextSearchObjectで保持しておく
      */
-    void intersectionDetectionByTemplateMatching(cv::Mat aroundWhiteBinary)
+    void intersectionDetectionByTemplateMatching(cv::Mat aroundWhiteBinary, double template_angle)
     {
         cv::Mat template_img;
 
         // Xの領域を区切る
         int searchLeftX = (int)(BIRDSEYE_LENGTH * 1);
 
-        bool doMathing = true;
+        bool doSearch = true;
 
         if (searchType == "right_T") {
             template_img = template_right_T;
@@ -1263,7 +1261,7 @@ public:
         } else if (searchType == "intersection") {
             template_img = template_intersection;
         } else {
-            doMathing = false;
+            doSearch = false;
         }
 
         std::cout << "現在" << searchType << "検索中" << std::endl;
@@ -1271,7 +1269,12 @@ public:
         double maxVal;
         cv::Mat result;
 
-        if (doMathing) {
+        if (doSearch) {
+            // 傾きを元に元画像を回転
+            cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), template_angle * -0.7, 1.0);
+            cv::Mat template_rot;
+            cv::warpAffine(template_img, template_rot, affine, template_img.size(), cv::INTER_CUBIC);
+
             cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH * 1.5, BIRDSEYE_LENGTH));
 
             cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);

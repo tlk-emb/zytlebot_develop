@@ -408,6 +408,7 @@ public:
                 changePhase("search_line");
             } else {
                 double degree_average = detectLane(left_roi);
+                detected_angle = degree_average;
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
                 intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
@@ -544,7 +545,6 @@ public:
         std::cout << "推定された左車線の位置 : " << detected_line_x << std::endl;
         std::cout << "全体の傾き : " << degree_average << std::endl;
 
-        detected_angle = degree_average;
         return degree_average;
     }
 
@@ -1319,7 +1319,7 @@ public:
 
         if (doSearch) {
             // 傾きを元に元画像を回転
-            cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), template_angle * -1, 1.0);
+            cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), template_angle * -0.7, 1.0);
             cv::Mat template_rot;
             cv::warpAffine(template_img, template_rot, affine, template_img.size(), cv::INTER_CUBIC);
             cv::imshow("template_rot", template_rot);
@@ -1344,11 +1344,11 @@ public:
         cv::Mat result;
 
         // 傾きを元に元画像を回転
-        cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), detected_angle * -1, 1.0);
+        cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), detected_angle * -0.7, 1.0);
         cv::Mat template_rot;
         cv::warpAffine(template_img, template_rot, affine, template_img.size(), cv::INTER_CUBIC);
 
-        cv::matchTemplate(aroundWhiteBinary, template_img, result, cv::TM_CCORR_NORMED);
+        cv::matchTemplate(aroundWhiteBinary, template_rot, result, cv::TM_CCORR_NORMED);
         cv::Point maxPt;
         cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
         std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
