@@ -150,6 +150,7 @@ class ImageConverter {
 
     double mileage;
     double phaseRunMileage;
+    double detected_angle;
 
 
     // 加速するかしないか
@@ -269,6 +270,7 @@ public:
         mostUnderLeftLaneLeftT = 0;
         nowIntersectionCount = 0;
         phaseRunMileage = 0;
+        detected_angle = 0;
         intersectionDetectionFlag = false;
         curveAfterCrosswalk = false;
         crosswalkFlag = false;
@@ -341,11 +343,11 @@ public:
         cv::Mat base_image = cv_ptr->image;
         ////////
 
+        detected_angle = 0;
 
         cv::Mat hsv_image, color_mask, gray_image, birds_eye;
 
         // 俯瞰画像
-
         birds_eye = birdsEye(base_image);
 
         cv::Mat aroundImg, aroundWhiteBinary;
@@ -359,7 +361,7 @@ public:
         display = aroundWhiteBinary.clone();
 
         cv::Mat road_white_binary(aroundWhiteBinary, cv::Rect(BIRDSEYE_LENGTH, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
-        cv::Mat left_roi(aroundWhiteBinary, cv::Rect(BIRDSEYE_LENGTH, 0, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH));
+        cv::Mat left_roi(aroundWhiteBinary, cv::Rect(BIRDSEYE_LENGTH / 2, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
         cv::Mat right_roi(aroundWhiteBinary, cv::Rect(BIRDSEYE_LENGTH * 1.5, 0, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH));
 
 
@@ -409,7 +411,7 @@ public:
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
                 intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
-                searchObject();
+                // searchObject();
                 lineTrace(degree_average, road_white_binary);
                 limitedTwistPub();
             }
@@ -428,7 +430,7 @@ public:
             searchObject();
             determinationRightTurn();
         } else if (now_phase == "find_obs") {
-            obstacleAvoidance(road_white_binary);
+            obstacleAvoidance(road_white_binary, aroundWhiteBinary);
         } else if (now_phase == "intersection_straight") {
             intersectionStraight(road_clone);
             limitedTwistPub();
@@ -505,7 +507,7 @@ public:
         // 垂直に近い点のみ線を引く
         for (size_t i = 0; i < left_lines.size(); i++) {
             STRAIGHT left_line = toStraightStruct(left_lines[i]);
-            if (left_line.degree < 20 && left_line.degree > -20) {
+            if (left_line.degree < 30 && left_line.degree > -30) {
 
                 if (left_lines[i][1] < mostDistantY) {
                     mostDistantX = left_lines[i][0];
@@ -516,13 +518,13 @@ public:
                     mostDistantY = left_lines[i][3];
                 }
 
-                cv::line(aroundDebug, cv::Point(left_lines[i][0] + BIRDSEYE_LENGTH, left_lines[i][1]),
-                         cv::Point(left_lines[i][2] + BIRDSEYE_LENGTH, left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
+                cv::line(aroundDebug, cv::Point(left_lines[i][0] + BIRDSEYE_LENGTH * 0.5, left_lines[i][1]),
+                         cv::Point(left_lines[i][2] + BIRDSEYE_LENGTH * 0.5, left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
 
                 degree_average_sum += left_line.degree;
-                if (most_left_middle_x > left_line.middle.x) {
-                    most_left_middle_x = left_line.middle.x;
-                    detected_line_x = left_line.middle.x;
+                if (most_left_middle_x > std::abs(left_line.middle.x - BIRDSEYE_LENGTH * 0.5)) {
+                    most_left_middle_x = std::abs(left_line.middle.x - BIRDSEYE_LENGTH * 0.5);
+                    detected_line_x = left_line.middle.x - BIRDSEYE_LENGTH * 0.5;
                 }
                 find_left_line = true;
                 average_cnt++;
@@ -542,7 +544,7 @@ public:
         std::cout << "推定された左車線の位置 : " << detected_line_x << std::endl;
         std::cout << "全体の傾き : " << degree_average << std::endl;
 
-
+        detected_angle = degree_average;
         return degree_average;
     }
 
@@ -831,7 +833,7 @@ public:
 
     // 障害物検知
     // 決め打ちで右にカーブし、決め打ちで左に戻る
-    void  obstacleAvoidance(cv::Mat road_white_binary) {
+    void  obstacleAvoidance(cv::Mat road_white_binary, cv::Mat aroundWhiteBinary) {
         ros::Time now = ros::Time::now();
         //　右車線に向けて回転
         if (now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME)) {
@@ -850,9 +852,10 @@ public:
             twist.linear.x = AVOID_OBSTACLE_VEL;
             twist.angular.z = AVOID_OBSTACLE_ROT / 5;
         }else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME)) { // 右車線を反転させてライントレースすることで、左車線と同様のアルゴリズムで走らせる(注// アングルも逆)
-            cv::Mat flipImg;
+            cv::Mat flipImg, flipAroundImg;
+            cv::flip(flipAroundImg, aroundWhiteBinary, 1);
             cv::flip(road_white_binary, flipImg, 1);
-            cv::Mat flip_left_roi(flipImg, cv::Rect(0, 0, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH));
+            cv::Mat flip_left_roi(flipImg, cv::Rect(BIRDSEYE_LENGTH / 2, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
 
             double degree_average = detectLane(flip_left_roi);
             lineTrace(degree_average, flipImg);
@@ -1311,9 +1314,6 @@ public:
 
         std::cout << "現在" << searchType << "検索中" << std::endl;
 
-        // デバッグ固定
-        template_img = template_right_T;
-
         double maxVal;
         cv::Mat result;
 
@@ -1343,9 +1343,15 @@ public:
         double maxVal;
         cv::Mat result;
 
+        // 傾きを元に元画像を回転
+        cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), detected_angle * -1, 1.0);
+        cv::Mat template_rot;
+        cv::warpAffine(template_img, template_rot, affine, template_img.size(), cv::INTER_CUBIC);
+
         cv::matchTemplate(aroundWhiteBinary, template_img, result, cv::TM_CCORR_NORMED);
         cv::Point maxPt;
         cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
+        std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
         if (maxVal > 0.75) {
             cv::rectangle(aroundDebug, cv::Point(maxPt.x, maxPt.y),
                           cv::Point(maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows),
