@@ -366,29 +366,38 @@ public:
         // 走行距離を求める
         mileage = twist.linear.x * (double)(ros::Time::now().toSec() - cycleTime.toSec()) * INTERSECTION_PREDICTION_TIME_RATIO;
         phaseRunMileage += mileage;
-        std::cout << "mileage  = " << mileage << std::endl;
 
-
-        // cycleTimeの更新
-        cycleTime = ros::Time::now();
-
-
+        // processingStartTimeの更新
+        ros::Time processingStartTime = ros::Time::now();
 
         cv::Mat road_clone = road_white_binary.clone();
-
-
-        // 交差点等のTを発見
-        // bool nowFindRightLaneRightT = intersectionDetection(around_lines, aroundWhiteBinary);
-
 
         // 左レーンの発見フラグをリセット
         find_left_line = false;
 
+        // デバッグ
+        system("clear");
+        std::cout << "現在のフェーズ : " << now_phase << std::endl;
+        std::string direction;
+        switch (now_dir) {
+            case 0: direction = "南";
+                break;
+            case 1: direction = "西";
+                break;
+            case 2: direction = "北";
+                break;
+            case 3: direction = "東";
+                break;
+            default: direction = "error";
+                break;
+        }
+
+        std::cout << "次の目的地 : x = " << next_tile_x << " y =  " << next_tile_y << " type=" << map_data[next_tile_x][next_tile_y][0] << std::endl;
+        std::cout << "現在の進行方向  " << direction << std::endl;
 
         // ---------------controller----------------
 
         updateObject();
-
 
         if (now_phase == "straight") {
             ros::Time now = ros::Time::now();
@@ -430,54 +439,28 @@ public:
         // ---------------controller end----------------
 
         // 以下デバッグ用
-        // 画像サイズを縦横半分に変更
+        testTemplateMatching(aroundWhiteBinary,  template_right_T, cv::Scalar(0, 0, 100));
+        testTemplateMatching(aroundWhiteBinary,  template_left_T, cv::Scalar(0, 100, 100));
+        testTemplateMatching(aroundWhiteBinary,  template_under_T, cv::Scalar(100, 0, 0));
+        testTemplateMatching(aroundWhiteBinary,  template_crosswalk, cv::Scalar(0, 255, 100));
+        testTemplateMatching(aroundWhiteBinary,  template_intersection, cv::Scalar(255, 0, 0));
 
-        // updateLeftLine(road_white_binary);
-
-        ////////////
-
-
-        for (OBJECT object : objects) {
-            if (object.objType == "right_lane_right_T") {
-                cv::ellipse(road_white_binary, cv::Point(object.beforeX + BIRDSEYE_LENGTH / 2, object.beforeY),
-                            cv::Size(10, 10), 0, 0, 360, cv::Scalar(0, 200, 0), -1, 8);
-            } else if (object.objType == "left_lane_left_T" || object.objType == "right_lane_left_T") {
-                cv::ellipse(road_white_binary, cv::Point(object.beforeX + BIRDSEYE_LENGTH / 2, object.beforeY),
-                            cv::Size(10, 10), 0, 0, 360, cv::Scalar(0, 0, 200), -1, 8);
-            }
-        }
+        std::cout << "走行距離 : " << mileage << " 合計 "  << phaseRunMileage << std::endl;
+        std::cout << "実行時間 : " << ros::Time::now().toSec() - processingStartTime.toSec() << "s" << std::endl;
+        std::cout << "周期時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
+        // cycleTimeの更新
+        cycleTime = ros::Time::now();
 
 
-        cv::Mat cv_half_image, birds_eye_x4, white_binary_x4, left_roi_x4, right_roi_x4, aroundImg_x4, aroundWhiteBinary_x4, red_image_x4;
-        cv::resize(base_image, cv_half_image, cv::Size(), 0.25, 0.25);
-        cv::resize(road_white_binary, white_binary_x4, cv::Size(), 4, 4);
-        cv::resize(display, aroundWhiteBinary_x4, cv::Size(), 2, 2);
+        cv::resize(base_image, base_image, cv::Size(), 0.5, 0.5);
 
-        // cv::resize(birds_eye, birds_eye_x4, cv::Size(), 4, 4);
-        // cv::resize(left_roi, left_roi_x4, cv::Size(), 4, 4);
-        cv::resize(road_clone, right_roi_x4, cv::Size(), 4, 4);
-        // cv::resize(aroundImg, aroundImg_x4, cv::Size(), 2, 2);
-        //cv::resize(red_image, red_image_x4, cv::Size(), 2, 2);
-
-        // ウインドウ表示
-        cv::imshow("Original Image", cv_half_image);
-        cv::imshow("WHITE BINARY", white_binary_x4);
-        cv::imshow("aroundWhite", aroundDebug);
-        cv::imshow("birds_eye", birds_eye);
-
-
-
-        // cv::imshow("ROI", birds_eye_x4);
-        //cv::imshow("LEFT ROI", left_roi_x4);
-        //cv::imshow("ROAD",  right_roi_x4);
-        // cv::imshow("road hough", road_hough);
-        //cv::imshow("center line", aroundImg_x4);
-        //cv::imshow("Red Image", red_image_x4);
-
+        std::cout << "速度     : " <<twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
+        cv::imshow("road", aroundDebug);
+        cv::moveWindow("road", 20, 20);
+        cv::imshow("origin", base_image);
+        cv::moveWindow("origin", 400, 20);
         cv::waitKey(3);
 
-        //エッジ画像をパブリッシュ。OpenCVからROS形式にtoImageMsg()で変換。
-        //image_pub_.publish(cv_ptr3->toImageMsg());
     }
 
 ////////////////関数//////////////////
@@ -1316,7 +1299,7 @@ public:
         // Xの領域を区切る
         int searchLeftX = (int)(BIRDSEYE_LENGTH * 1);
 
-        bool doMathing = true;
+        bool doSearch = true;
 
         if (searchType == "right_T") {
             template_img = template_right_T;
@@ -1329,7 +1312,7 @@ public:
         } else if (searchType == "intersection") {
             template_img = template_intersection;
         } else {
-            doMathing = false;
+            doSearch = false;
         }
 
         std::cout << "現在" << searchType << "検索中" << std::endl;
@@ -1337,22 +1320,32 @@ public:
         double maxVal;
         cv::Mat result;
 
-        if (doMathing) {
+        if (doSearch) {
             cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH * 1.5, BIRDSEYE_LENGTH));
 
-            cv::imshow("sozai test", template_img);
             cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
-            cv::imshow("searchRoi", searchRoi);
-            cv::imshow("matching", result);
             cv::Point maxPt;
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
-            if (maxVal > 0.7) {
-                // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
-                addObject(searchType, searchLeftX + maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2);
+            std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
+            // cv::rectangle(aroundDebug, cv::Point(searchLeftX + maxPt.x, maxPt.y), cv::Point(searchLeftX + maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(255 * maxVal, 255 * maxVal, 255 * maxVal), 2, 8, 0);
+            if (maxVal > 0.75) {
+                addObject(searchType, searchLeftX + maxPt.x  + template_right_T.cols / 2, maxPt.y + template_right_T.rows / 2);
                 std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
-
-                cv::rectangle(aroundDebug, cv::Point(searchLeftX + maxPt.x, maxPt.y), cv::Point(searchLeftX + maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
             }
+        }
+    }
+
+    void testTemplateMatching(cv::Mat aroundWhiteBinary, cv::Mat template_img, cv::Scalar color) {
+        double maxVal;
+        cv::Mat result;
+
+        cv::matchTemplate(aroundWhiteBinary, template_img, result, cv::TM_CCORR_NORMED);
+        cv::Point maxPt;
+        cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
+        if (maxVal > 0.75) {
+            cv::rectangle(aroundDebug, cv::Point(maxPt.x, maxPt.y),
+                          cv::Point(maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows),
+                          color, 2, 8, 0);
         }
     }
 

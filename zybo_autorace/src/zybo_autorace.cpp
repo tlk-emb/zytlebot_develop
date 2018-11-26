@@ -1292,7 +1292,7 @@ public:
             cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
             cv::Point maxPt;
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
-            if (maxVal > 0.7) {
+            if (maxVal > 0.75) {
                 // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
                 addObject(searchType, searchLeftX + maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2);
                 std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
