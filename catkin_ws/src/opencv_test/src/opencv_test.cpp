@@ -532,8 +532,8 @@ public:
         }
 
         if (find_left_line) {
-            addMostDistantObject("left_lane_end", mostDistantX, mostDistantY); // 左車線の最も遠い点を直線の終点として保持しておく
-            reachBottomLeftLaneStraightEnd = false;
+            // addMostDistantObject("left_lane_end", mostDistantX, mostDistantY); // 左車線の最も遠い点を直線の終点として保持しておく
+            // reachBottomLeftLaneStraightEnd = false;
             line_lost_time = ros::Time::now();
             degree_average = degree_average_sum / average_cnt;
         }

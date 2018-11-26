@@ -141,7 +141,6 @@ class ImageConverter {
     bool reachBottomRightLaneRightT;
     bool reachBottomRightLaneLeftT;
     bool reachBottomLeftLaneLeftT;
-    bool reachBottomLeftLaneStraightEnd;
 
     // 交差点の挙動決定のための配列の位置
     int nowIntersectionCount;
@@ -272,7 +271,6 @@ public:
         reachBottomRightLaneRightT = false;
         reachBottomRightLaneLeftT = false;
         reachBottomLeftLaneLeftT = false;
-        reachBottomLeftLaneStraightEnd = false;
         mostUnderLeftLaneLeftT = 0;
         nowIntersectionCount = 0;
         phaseRunMileage = 0;
@@ -455,7 +453,6 @@ public:
         reachBottomRightLaneLeftT = false;
         reachBottomRightLaneRightT = false;
         intersectionDetectionFlag = false;
-        reachBottomLeftLaneStraightEnd = false;
         crosswalkFlag = false;
         line_lost_time = ros::Time::now();
     }
@@ -472,23 +469,11 @@ public:
         double degree_average_sum = 0;
         double most_left_middle_x = BIRDSEYE_LENGTH * 0.5;
         double degree_average = 0;
-        int mostDistantY = BIRDSEYE_LENGTH;
-        int mostDistantX = 0;
 
         // 垂直に近い点のみ線を引く
         for (size_t i = 0; i < left_lines.size(); i++) {
             STRAIGHT left_line = toStraightStruct(left_lines[i]);
             if (left_line.degree < 20 && left_line.degree > -20) {
-
-                if (left_lines[i][1] < mostDistantY) {
-                    mostDistantX = left_lines[i][0];
-                    mostDistantY = left_lines[i][1];
-                }
-                if (left_lines[i][3] < mostDistantY) {
-                    mostDistantX = left_lines[i][2];
-                    mostDistantY = left_lines[i][3];
-                }
-                
                 degree_average_sum += left_line.degree;
                 if (most_left_middle_x > left_line.middle.x) {
                     most_left_middle_x = left_line.middle.x;
@@ -500,8 +485,6 @@ public:
         }
 
         if (find_left_line) {
-            addMostDistantObject("left_lane_end", mostDistantX, mostDistantY); // 左車線の最も遠い点を直線の終点として保持しておく
-            reachBottomLeftLaneStraightEnd = false;
             line_lost_time = ros::Time::now();
             degree_average = degree_average_sum / average_cnt;
         }
@@ -1356,9 +1339,6 @@ public:
                         reachBottomRightLaneLeftT = true;
                     } else if (obj.objType == "right_lane_right_T") {
                         reachBottomRightLaneRightT = true;
-                    } else if (obj.objType == "left_lane_end") {
-                        // std::cout << "left lane end = true " << std::endl;
-                        reachBottomLeftLaneStraightEnd = true;
                     }
                 }
                 itr = objects.erase(itr);
