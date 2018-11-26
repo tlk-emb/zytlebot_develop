@@ -288,7 +288,7 @@ public:
 
         //  処理した挙動をパブリッシュ
         //twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
-        twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
+        twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel2", 1000);
         // 0.1秒ごとに制御を呼び出す
         //timer = nh.createTimer(ros::Duration(0.1), &ImageConverter::timerCallback, this);
 
@@ -408,7 +408,7 @@ public:
                 double degree_average = detectLane(left_roi);
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
-                intersectionDetectionByTemplateMatching(aroundWhiteBinary);
+                intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                 searchObject();
                 lineTrace(degree_average, road_white_binary);
                 limitedTwistPub();
@@ -424,7 +424,7 @@ public:
         } else if (now_phase == "turn_left") {
             leftTurn();
         } else if (now_phase == "turn_right") {
-            intersectionDetectionByTemplateMatching(aroundWhiteBinary);
+            intersectionDetectionByTemplateMatching(aroundWhiteBinary, 0);
             searchObject();
             determinationRightTurn();
         } else if (now_phase == "find_obs") {
@@ -516,11 +516,9 @@ public:
                     mostDistantY = left_lines[i][3];
                 }
 
-                //デバッグ 赤線を引く
-                /*
-                cv::line(left_roi, cv::Point(left_lines[i][0], left_lines[i][1]),
-                         cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
-                         */
+                cv::line(aroundDebug, cv::Point(left_lines[i][0] + BIRDSEYE_LENGTH, left_lines[i][1]),
+                         cv::Point(left_lines[i][2] + BIRDSEYE_LENGTH, left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
+
                 degree_average_sum += left_line.degree;
                 if (most_left_middle_x > left_line.middle.x) {
                     most_left_middle_x = left_line.middle.x;
@@ -536,7 +534,14 @@ public:
             // reachBottomLeftLaneStraightEnd = false;
             line_lost_time = ros::Time::now();
             degree_average = degree_average_sum / average_cnt;
+            cv::line(aroundDebug, cv::Point(detected_line_x + BIRDSEYE_LENGTH, 0),
+                     cv::Point(detected_line_x + BIRDSEYE_LENGTH, BIRDSEYE_LENGTH), cv::Scalar(0, 255, 255), 3, 8);
         }
+
+        std::cout << "左車線の検知 : " << find_left_line << " | 検知数 = " << average_cnt << std::endl;
+        std::cout << "推定された左車線の位置 : " << detected_line_x << std::endl;
+        std::cout << "全体の傾き : " << degree_average << std::endl;
+
 
         return degree_average;
     }
@@ -1281,7 +1286,7 @@ public:
      * マップデータから次の判別すべきタイルは判断できるので、判断されたタイルに適した画像を検出すればよい
      * 判別すべき画像はnextSearchObjectで保持しておく
      */
-    void intersectionDetectionByTemplateMatching(cv::Mat aroundWhiteBinary)
+    void intersectionDetectionByTemplateMatching(cv::Mat aroundWhiteBinary, double template_angle)
     {
         cv::Mat template_img;
 
@@ -1306,13 +1311,23 @@ public:
 
         std::cout << "現在" << searchType << "検索中" << std::endl;
 
+        // デバッグ固定
+        template_img = template_right_T;
+
         double maxVal;
         cv::Mat result;
 
         if (doSearch) {
+            // 傾きを元に元画像を回転
+            cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), template_angle * -1, 1.0);
+            cv::Mat template_rot;
+            cv::warpAffine(template_img, template_rot, affine, template_img.size(), cv::INTER_CUBIC);
+            cv::imshow("template_rot", template_rot);
+            cv::moveWindow("template_rot", 20, 200);
+
             cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH * 1.5, BIRDSEYE_LENGTH));
 
-            cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
+            cv::matchTemplate(searchRoi, template_rot, result, cv::TM_CCORR_NORMED);
             cv::Point maxPt;
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
             std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
@@ -1347,7 +1362,7 @@ public:
             OBJECT obj = *itr;
 
             std::cout << objCnt << " Type" << obj.objType << std::endl;
-            std::cout << "検知回数 : " << obj.findCnt << " |  y =  " << std::endl;
+            std::cout << "検知回数 : " << obj.findCnt << " |  y =  " << obj.beforeY << std::endl;
 
             itr++;
             objCnt++;
