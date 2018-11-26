@@ -454,6 +454,13 @@ public:
 
         // ---------------controller end----------------
         // 以下デバッグ出力
+
+        testTemplateMatching(aroundWhiteBinary,  template_right_T, cv::Scalar(0, 0, 100));
+        testTemplateMatching(aroundWhiteBinary,  template_left_T, cv::Scalar(0, 100, 100));
+        testTemplateMatching(aroundWhiteBinary,  template_under_T, cv::Scalar(100, 0, 0));
+        testTemplateMatching(aroundWhiteBinary,  template_crosswalk, cv::Scalar(0, 255, 100));
+        testTemplateMatching(aroundWhiteBinary,  template_intersection, cv::Scalar(255, 0, 0));
+
         std::cout << "走行距離 : " << mileage << std::endl;
         std::cout << "実行時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
         std::cout << "速度     : " <<twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
@@ -1297,7 +1304,7 @@ public:
         // Xの領域を区切る
         int searchLeftX = (int)(BIRDSEYE_LENGTH * 1);
 
-        bool doMathing = true;
+        bool doSearch = true;
 
         if (searchType == "right_T") {
             template_img = template_right_T;
@@ -1310,7 +1317,7 @@ public:
         } else if (searchType == "intersection") {
             template_img = template_intersection;
         } else {
-            doMathing = false;
+            doSearch = false;
         }
 
         std::cout << "現在" << searchType << "検索中" << std::endl;
@@ -1318,7 +1325,7 @@ public:
         double maxVal;
         cv::Mat result;
 
-        if (doMathing) {
+        if (doSearch) {
             cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH * 1.5, BIRDSEYE_LENGTH));
 
             cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
@@ -1330,6 +1337,22 @@ public:
                 addObject(searchType, searchLeftX + maxPt.x  + template_right_T.cols / 2, maxPt.y + template_right_T.rows / 2);
                 std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
             }
+
+
+        }
+    }
+
+    void testTemplateMatching(cv::Mat aroundWhiteBinary, cv::Mat template_img, cv::Scalar color) {
+        double maxVal;
+        cv::Mat result;
+
+        cv::matchTemplate(aroundWhiteBinary, template_img, result, cv::TM_CCORR_NORMED);
+        cv::Point maxPt;
+        cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
+        if (maxVal > 0.7) {
+            cv::rectangle(aroundDebug, cv::Point(maxPt.x, maxPt.y),
+                          cv::Point(maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows),
+                          color, 2, 8, 0);
         }
     }
 

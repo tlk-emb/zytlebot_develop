@@ -669,8 +669,8 @@ public:
 
             // カーブの後はcurveAfterCrosswalkがtrueになっているので、直後のnextTileが横断歩道の時のみtrueのまま
             // 別の場合はcurveAfterCrosswalkをfalseにする
-            // if (nextTile == 2 || nextTile == 5 || nextTile == 6 || nextTile == 7 || nextTile == 8) {
-            if (nextTile == 7 || nextTile == 8) {
+            // if (nextTile == 2 || nextTile == 5 || nextTile == 3 || nextTile == 6 || nextTile == 7 || nextTile == 8) {
+            if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
                 find_tile = true;
             }
         }
