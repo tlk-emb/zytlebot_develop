@@ -399,9 +399,15 @@ public:
         std::string direction;
         switch (now_dir) {
             case 0: direction = "南";
+                break;
             case 1: direction = "西";
+                break;
             case 2: direction = "北";
+                break;
             case 3: direction = "東";
+                break;
+            default: direction = "error";
+                break;
         }
 
         std::cout << "次の目的地 : x = " << next_tile_x << " y =  " << next_tile_y << " type=" << map_data[next_tile_x][next_tile_y][0] << std::endl;
@@ -436,8 +442,6 @@ public:
         } else if (now_phase == "turn_left") {
             leftTurn();
         } else if (now_phase == "turn_right") {
-            intersectionDetectionByTemplateMatching(aroundWhiteBinary);
-            searchObject();
             determinationRightTurn();
         } else if (now_phase == "find_obs") {
             obstacleAvoidance(road_white_binary);
@@ -450,12 +454,13 @@ public:
 
         // ---------------controller end----------------
         // 以下デバッグ出力
-        std::cout << "走行距離  = " << mileage << std::endl;
-        std::cout << "速度 = " <<twist.linear.x << " 角度 = " << twist.angular.z << std::endl;
+        std::cout << "走行距離 : " << mileage << std::endl;
+        std::cout << "実行時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
+        std::cout << "速度     : " <<twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
         cv::imshow("road", aroundDebug);
-        cv::moveWindow("aroundWhite", 20, 20);
+        cv::moveWindow("road", 20, 20);
         cv::imshow("origin", caliblated);
-        cv::moveWindow("caliblated", 500, 20);
+        cv::moveWindow("origin", 1000, 20);
         cv::waitKey(3);
     }
 
@@ -525,14 +530,11 @@ public:
         }
 
         if (find_left_line) {
-            addMostDistantObject("left_lane_end", mostDistantX, mostDistantY); // 左車線の最も遠い点を直線の終点として保持しておく
-            reachBottomLeftLaneStraightEnd = false;
             line_lost_time = ros::Time::now();
             degree_average = degree_average_sum / average_cnt;
+            cv::line(aroundDebug, cv::Point(detected_line_x + BIRDSEYE_LENGTH, 0),
+                     cv::Point(detected_line_x + BIRDSEYE_LENGTH, BIRDSEYE_LENGTH), cv::Scalar(0, 255, 255), 3, 8);
         }
-
-        cv::line(aroundDebug, cv::Point(detected_line_x + BIRDSEYE_LENGTH, 0),
-                 cv::Point(detected_line_x + BIRDSEYE_LENGTH, BIRDSEYE_LENGTH), cv::Scalar(0, 0, 255), 3, 8);
 
         std::cout << "左車線の検知 : " << find_left_line << " | 検知数 = " << average_cnt << std::endl;
         std::cout << "推定された左車線の位置 : " << detected_line_x << std::endl;
@@ -701,8 +703,8 @@ public:
 
             // カーブの後はcurveAfterCrosswalkがtrueになっているので、直後のnextTileが横断歩道の時のみtrueのまま
             // 別の場合はcurveAfterCrosswalkをfalseにする
-            // if (nextTile == 2 || nextTile == 5 || nextTile == 6 || nextTile == 7 || nextTile == 8) {
-            if (nextTile == 7 || nextTile == 8) {
+            // if (nextTile == 2 || nextTile == 3 || nextTile == 5 || nextTile == 6 || nextTile == 7 || nextTile == 8) {
+            if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
                 find_tile = true;
             }
         }
@@ -1323,12 +1325,10 @@ public:
             cv::Point maxPt;
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
             std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
+            // cv::rectangle(aroundDebug, cv::Point(searchLeftX + maxPt.x, maxPt.y), cv::Point(searchLeftX + maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(255 * maxVal, 255 * maxVal, 255 * maxVal), 2, 8, 0);
             if (maxVal > 0.7) {
-                // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
-                addObject(searchType, searchLeftX + maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2);
+                addObject(searchType, searchLeftX + maxPt.x  + template_right_T.cols / 2, maxPt.y + template_right_T.rows / 2);
                 std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
-
-                cv::rectangle(aroundDebug, cv::Point(searchLeftX + maxPt.x, maxPt.y), cv::Point(searchLeftX + maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
             }
         }
     }
