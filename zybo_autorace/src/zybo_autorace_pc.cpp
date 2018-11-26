@@ -467,6 +467,7 @@ public:
         cycleTime = ros::Time::now();
 
         std::cout << "速度     : " <<twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
+        testOutputObject();
         cv::imshow("road", aroundDebug);
         cv::moveWindow("road", 20, 20);
         cv::imshow("origin", caliblated);
@@ -1368,7 +1369,20 @@ public:
         }
     }
 
+    // 現在のオブジェクト状況を出力
+    void testOutputObject() {
+        int objCnt = 1;
+        std::list<OBJECT>::iterator itr;
+        for (itr = objects.begin(); itr != objects.end();) {
+            OBJECT obj = *itr;
 
+            std::cout << objCnt << " Type" << obj.objType << std::endl;
+            std::cout << "検知回数 : " << obj.findCnt << " |  y =  " << obj.beforeY << std::endl;
+
+            itr++;
+            objCnt++;
+        }
+    }
     // オブジェクトが一定時間発見されていなければ破棄
     void updateObject() {
         ros::Time now = ros::Time::now();
