@@ -371,13 +371,8 @@ public:
         // 走行距離を求める
         mileage = twist.linear.x * (double)(ros::Time::now().toSec() - cycleTime.toSec()) * INTERSECTION_PREDICTION_TIME_RATIO;
         phaseRunMileage += mileage;
-        std::cout << "mileage  = " << mileage << std::endl;
 
-
-        // cycleTimeの更新
-        cycleTime = ros::Time::now();
-
-
+        ros::Time processingStartTime = ros::Time::now();
 
         cv::Mat road_clone = road_white_binary.clone();
 
@@ -388,6 +383,25 @@ public:
 
         // 左レーンの発見フラグをリセット
         find_left_line = false;
+
+        system("clear");
+        std::cout << "現在のフェーズ : " << now_phase << std::endl;
+        std::string direction;
+        switch (now_dir) {
+            case 0: direction = "南";
+                break;
+            case 1: direction = "西";
+                break;
+            case 2: direction = "北";
+                break;
+            case 3: direction = "東";
+                break;
+            default: direction = "error";
+                break;
+        }
+
+        std::cout << "次の目的地 : x = " << next_tile_x << " y =  " << next_tile_y << " type=" << map_data[next_tile_x][next_tile_y][0] << std::endl;
+        std::cout << "現在の進行方向  " << direction << std::endl;
 
 
         // ---------------controller----------------
@@ -433,6 +447,14 @@ public:
         }
 
         // ---------------controller end----------------
+
+        std::cout << "走行距離 : " << mileage << " 合計 "  << phaseRunMileage << std::endl;
+        std::cout << "実行時間 : " << ros::Time::now().toSec() - processingStartTime.toSec() << "s" << std::endl;
+        std::cout << "周期時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
+        // cycleTimeの更新
+        cycleTime = ros::Time::now();
+
+        std::cout << "速度     : " <<twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
     }
 
 ////////////////関数//////////////////
@@ -1280,6 +1302,7 @@ public:
             cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
             cv::Point maxPt;
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
+            std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
             if (maxVal > 0.75) {
                 // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
                 addObject(searchType, searchLeftX + maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2);

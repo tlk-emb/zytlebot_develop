@@ -379,10 +379,7 @@ public:
         mileage = twist.linear.x * (double)(ros::Time::now().toSec() - cycleTime.toSec()) * INTERSECTION_PREDICTION_TIME_RATIO;
         phaseRunMileage += mileage;
 
-
         ros::Time processingStartTime = ros::Time::now();
-
-
 
         cv::Mat road_clone = road_white_binary.clone();
 
@@ -463,7 +460,7 @@ public:
         testTemplateMatching(aroundWhiteBinary,  template_crosswalk, cv::Scalar(0, 255, 100));
         testTemplateMatching(aroundWhiteBinary,  template_intersection, cv::Scalar(255, 0, 0));
 
-        std::cout << "走行距離 : " << mileage << std::endl;
+        std::cout << "走行距離 : " << mileage << " 合計 "  << phaseRunMileage << std::endl;
         std::cout << "実行時間 : " << ros::Time::now().toSec() - processingStartTime.toSec() << "s" << std::endl;
         std::cout << "周期時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
         // cycleTimeの更新
