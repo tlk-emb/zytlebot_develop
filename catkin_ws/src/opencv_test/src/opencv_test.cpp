@@ -455,6 +455,7 @@ public:
         cv::resize(base_image, base_image, cv::Size(), 0.5, 0.5);
 
         std::cout << "速度     : " <<twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
+        testOutputObject();
         cv::imshow("road", aroundDebug);
         cv::moveWindow("road", 20, 20);
         cv::imshow("origin", base_image);
@@ -1236,23 +1237,11 @@ public:
     // 一致する場合タイムスタンプと位置を更新し、カウントを1増やす
     void addObject(std::string objType, int objectX, int objectY) {
         bool findObj = false;
-        /*
-        for(OBJECT compare : objects) {
-          if( compare.objType == objType && (objectX > compare.beforeX - 15) && (std::abs(objectY - compare.beforeY) < 30)) {
-            compare.beforeX = objectX;
-            compare.beforeY = objectY;
-            compare.findCnt += 1;
-            compare.timeStamp = ros::Time::now();
-            findObj = true;
-            break;
-          }
-        }
-         */
         std::list<OBJECT>::iterator itr;
         for (itr = objects.begin(); itr != objects.end();) {
             OBJECT compare = *itr;
-            if (compare.objType == objType && (objectX > compare.beforeX - 5) &&
-                (std::abs(objectY - compare.beforeY) < 10)) {
+            if (compare.objType == objType && (std::abs(objectX - compare.beforeX) < 30) &&
+                (std::abs(objectY - compare.beforeY) < 30)) {
                 compare.beforeX = objectX;
                 compare.beforeY = objectY;
                 compare.findCnt += 1;
@@ -1350,6 +1339,20 @@ public:
     }
 
 
+    // 現在のオブジェクト状況を出力
+    void testOutputObject() {
+        int objCnt = 1;
+        std::list<OBJECT>::iterator itr;
+        for (itr = objects.begin(); itr != objects.end();) {
+            OBJECT obj = *itr;
+
+            std::cout << objCnt << " Type" << obj.objType << std::endl;
+            std::cout << "検知回数 : " << obj.findCnt << " |  y =  " << std::endl;
+
+            itr++;
+            objCnt++;
+        }
+    }
     // オブジェクトが一定時間発見されていなければ破棄
     void updateObject() {
         ros::Time now = ros::Time::now();
