@@ -423,10 +423,10 @@ public:
                 changePhase("search_line");
             } else {
                 double degree_average = detectLane(left_roi);
+                detected_angle = degree_average;
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
                 intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
-                searchObject();
                 lineTrace(degree_average, road_white_binary);
                 limitedTwistPub();
             }
@@ -526,8 +526,8 @@ public:
                     mostDistantY = left_lines[i][3];
                 }
 
-                cv::line(aroundDebug, cv::Point(left_lines[i][0] + BIRDSEYE_LENGTH, left_lines[i][1]),
-                         cv::Point(left_lines[i][2] + BIRDSEYE_LENGTH, left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
+                cv::line(aroundDebug, cv::Point(left_lines[i][0] + BIRDSEYE_LENGTH / 2, left_lines[i][1]),
+                         cv::Point(left_lines[i][2] + BIRDSEYE_LENGTH / 2, left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
                 
                 degree_average_sum += left_line.degree;
                 if (most_left_middle_x > std::abs(left_line.middle.x - BIRDSEYE_LENGTH * 0.5)) {
@@ -1357,10 +1357,10 @@ public:
         cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), detected_angle * -0.7, 1.0);
         cv::Mat template_rot;
         cv::warpAffine(template_img, template_rot, affine, template_img.size(), cv::INTER_CUBIC);
-
-        cv::matchTemplate(aroundWhiteBinary, template_roi, result, cv::TM_CCORR_NORMED);
+        cv::matchTemplate(aroundWhiteBinary, template_rot, result, cv::TM_CCORR_NORMED);
         cv::Point maxPt;
         cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
+        std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
         if (maxVal > 0.75) {
             cv::rectangle(aroundDebug, cv::Point(maxPt.x, maxPt.y),
                           cv::Point(maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows),
