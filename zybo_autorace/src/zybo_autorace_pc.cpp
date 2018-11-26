@@ -377,8 +377,7 @@ public:
         phaseRunMileage += mileage;
 
 
-        // cycleTimeの更新
-        cycleTime = ros::Time::now();
+        ros::Time processingStartTime = ros::Time::now();
 
 
 
@@ -462,12 +461,16 @@ public:
         testTemplateMatching(aroundWhiteBinary,  template_intersection, cv::Scalar(255, 0, 0));
 
         std::cout << "走行距離 : " << mileage << std::endl;
-        std::cout << "実行時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
+        std::cout << "実行時間 : " << ros::Time::now().toSec() - processingStartTime.toSec() << "s" << std::endl;
+        std::cout << "周期時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
+        // cycleTimeの更新
+        cycleTime = ros::Time::now();
+
         std::cout << "速度     : " <<twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
         cv::imshow("road", aroundDebug);
         cv::moveWindow("road", 20, 20);
         cv::imshow("origin", caliblated);
-        cv::moveWindow("origin", 1000, 20);
+        cv::moveWindow("origin", 400, 20);
         cv::waitKey(3);
     }
 
@@ -1333,12 +1336,10 @@ public:
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
             std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
             // cv::rectangle(aroundDebug, cv::Point(searchLeftX + maxPt.x, maxPt.y), cv::Point(searchLeftX + maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(255 * maxVal, 255 * maxVal, 255 * maxVal), 2, 8, 0);
-            if (maxVal > 0.7) {
+            if (maxVal > 0.75) {
                 addObject(searchType, searchLeftX + maxPt.x  + template_right_T.cols / 2, maxPt.y + template_right_T.rows / 2);
                 std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
             }
-
-
         }
     }
 
@@ -1349,7 +1350,7 @@ public:
         cv::matchTemplate(aroundWhiteBinary, template_img, result, cv::TM_CCORR_NORMED);
         cv::Point maxPt;
         cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
-        if (maxVal > 0.7) {
+        if (maxVal > 0.75) {
             cv::rectangle(aroundDebug, cv::Point(maxPt.x, maxPt.y),
                           cv::Point(maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows),
                           color, 2, 8, 0);
