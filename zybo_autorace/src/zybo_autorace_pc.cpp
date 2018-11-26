@@ -375,8 +375,6 @@ public:
         // 走行距離を求める
         mileage = twist.linear.x * (double)(ros::Time::now().toSec() - cycleTime.toSec()) * INTERSECTION_PREDICTION_TIME_RATIO;
         phaseRunMileage += mileage;
-        system("clear");
-        std::cout << "走行距離  = " << mileage << std::endl;
 
 
         // cycleTimeの更新
@@ -395,10 +393,23 @@ public:
         find_left_line = false;
 
 
+
+        system("clear");
+        std::cout << "現在のフェーズ : " << now_phase << std::endl;
+        std::string direction;
+        switch (now_dir) {
+            case 0: direction = "南";
+            case 1: direction = "西";
+            case 2: direction = "北";
+            case 3: direction = "東";
+        }
+
+        std::cout << "次の目的地 : x = " << next_tile_x << " y =  " << next_tile_y << " type=" << map_data[next_tile_x][next_tile_y][0] << std::endl;
+        std::cout << "現在の進行方向  " << direction << std::endl;
+
+
         // ---------------controller----------------
-
         updateObject();
-
 
         if (now_phase == "straight") {
             ros::Time now = ros::Time::now();
@@ -438,8 +449,14 @@ public:
         }
 
         // ---------------controller end----------------
-        cv::imshow("aroundWhite", aroundDebug);
+        // 以下デバッグ出力
+        std::cout << "走行距離  = " << mileage << std::endl;
+        std::cout << "速度 = " <<twist.linear.x << " 角度 = " << twist.angular.z << std::endl;
+        cv::imshow("road", aroundDebug);
         cv::moveWindow("aroundWhite", 20, 20);
+        cv::imshow("origin", caliblated);
+        cv::moveWindow("caliblated", 500, 20);
+        cv::waitKey(3);
     }
 
 ////////////////関数//////////////////
@@ -493,6 +510,9 @@ public:
                     mostDistantX = left_lines[i][2];
                     mostDistantY = left_lines[i][3];
                 }
+
+                cv::line(aroundDebug, cv::Point(left_lines[i][0] + BIRDSEYE_LENGTH, left_lines[i][1]),
+                         cv::Point(left_lines[i][2] + BIRDSEYE_LENGTH, left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
                 
                 degree_average_sum += left_line.degree;
                 if (most_left_middle_x > left_line.middle.x) {
@@ -510,6 +530,13 @@ public:
             line_lost_time = ros::Time::now();
             degree_average = degree_average_sum / average_cnt;
         }
+
+        cv::line(aroundDebug, cv::Point(detected_line_x + BIRDSEYE_LENGTH, 0),
+                 cv::Point(detected_line_x + BIRDSEYE_LENGTH, BIRDSEYE_LENGTH), cv::Scalar(0, 0, 255), 3, 8);
+
+        std::cout << "左車線の検知 : " << find_left_line << " | 検知数 = " << average_cnt << std::endl;
+        std::cout << "推定された左車線の位置 : " << detected_line_x << std::endl;
+        std::cout << "全体の傾き : " << degree_average << std::endl;
 
         return degree_average;
     }
@@ -684,16 +711,6 @@ public:
         next_tile_x = next_x;
         next_tile_y = next_y;
 
-        std::string direction;
-        switch (now_dir) {
-            case 0: direction = "南";
-            case 1: direction = "西";
-            case 2: direction = "北";
-            case 3: direction = "東";
-        }
-
-        std::cout << "次の目的地 " << next_x << " " << next_y << "   type=" << map_data[next_y][next_x][0] << std::endl;
-        std::cout << "現在の進行方向  " << direction << std::endl;
 
         setSearchType();
     }
@@ -957,7 +974,7 @@ public:
             // 車線が見つからなかった場合、LeftRoadLeftTで最下のものを基準に
             line_lost_cnt += 1;
             updateLeftLine(road_white_binary);
-            twist.angular.z = (BIRDSEYE_LENGTH * RUN_LINE - detected_line_x) / 400;
+            twist.angular.z = (BIRDSEYE_LENGTH * RUN_LINE - detected_line_x) / 600;
         }
     }
 
