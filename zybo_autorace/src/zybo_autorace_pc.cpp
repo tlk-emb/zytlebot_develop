@@ -719,9 +719,11 @@ public:
 
             // カーブの後はcurveAfterCrosswalkがtrueになっているので、直後のnextTileが横断歩道の時のみtrueのまま
             // 別の場合はcurveAfterCrosswalkをfalseにする
-            // if (nextTile == 2 || nextTile == 3 || nextTile == 5 || nextTile == 6 || nextTile == 7 || nextTile == 8) {
-            if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
+            if (nextTile == 2 || nextTile == 5 || nextTile == 6) {
                 find_tile = true;
+            } else if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
+                find_tile = true;
+                curveAfterCrosswalk = false;
             }
         }
 
@@ -918,14 +920,14 @@ public:
         if (now - phaseStartTime > ros::Duration(RIGHT_CURVE_END_TIME) && find_left_line) {
             if (curveAfterCrosswalk) {
                 curveAfterCrosswalk = false;
-                changePhase("search_right_lane_right_T");
+                changePhase("crosswalk");
             } else {
                 changePhase("search_line");
             }
         } else if (now - phaseStartTime > ros::Duration(RIGHT_CURVE_END_TIME + RIGHT_CURVE_END_MARGIN_TIME)) {
             if (curveAfterCrosswalk) {
                 curveAfterCrosswalk = false;
-                changePhase("search_right_lane_right_T");
+                changePhase("crosswalk");
             } else {
                 changePhase("search_line");
             }
