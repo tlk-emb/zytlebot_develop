@@ -836,7 +836,7 @@ public:
             cv::Mat flipImg, flipAroundImg;
             cv::flip(flipAroundImg, aroundWhiteBinary, 1);
             cv::flip(road_white_binary, flipImg, 1);
-            cv::Mat flip_left_roi(flipImg, cv::Rect(BIRDSEYE_LENGTH / 2, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
+            cv::Mat flip_left_roi(flipAroundImg, cv::Rect(BIRDSEYE_LENGTH / 2, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
 
             double degree_average = detectLane(flip_left_roi);
             lineTrace(degree_average, flipImg);
