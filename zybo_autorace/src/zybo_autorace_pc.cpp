@@ -418,15 +418,15 @@ public:
 
         if (now_phase == "straight") {
             ros::Time now = ros::Time::now();
-            // if (now - line_lost_time > ros::Duration(4.0)) {
-            if (false) {
-                changePhase("search_line");
+            if (now - line_lost_time > ros::Duration(4.0) && map_data[next_tile_x][next_tile_y][0] == 8) {
+                changePhase("intersection_straight");
             } else {
                 double degree_average = detectLane(left_roi);
                 detected_angle = degree_average;
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
                 intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
+                searchObject();
                 lineTrace(degree_average, road_white_binary);
                 limitedTwistPub();
             }
@@ -445,7 +445,10 @@ public:
         } else if (now_phase == "find_obs") {
             obstacleAvoidance(road_white_binary, aroundWhiteBinary);
         } else if (now_phase == "intersection_straight") {
-            intersectionStraight(road_clone);
+            double degree_average = intersectionStraight(road_clone);
+            detected_angle = degree_average;
+            intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
+            searchObject();
             limitedTwistPub();
         } else if (now_phase == "crosswalk") {
             crosswalkRedStop();
@@ -616,6 +619,7 @@ public:
                         setNextTile();
 
                     } else { // 右に曲がる
+                        curveAfterCrosswalk = true;
                         nowIntersectionCount++;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
@@ -625,6 +629,7 @@ public:
                 } else if (differenceDirection == 0) {
                     // T字路の下から突き当りに向かって入った場合
                     if (nextDirection == 1) { // 右に曲がる
+                        curveAfterCrosswalk = true;
                         nowIntersectionCount++;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
@@ -776,7 +781,7 @@ public:
 
     // 直線
     // 傾きからまっすぐ走らせる
-    void intersectionStraight(cv::Mat roadRoi) {
+    double intersectionStraight(cv::Mat roadRoi) {
         ros::Time now = ros::Time::now();
         //　右車線に向けて回転
         if (now - phaseStartTime >  ros::Duration(INTERSECTION_STRAIGHT_TIME)) {
@@ -803,6 +808,7 @@ public:
             twist.angular.z = averageDegree * -0.01;
         }
         twist.linear.x = 0.2;
+        return averageDegree;
     }
 
     // 決め打ちで左カーブ
@@ -825,9 +831,19 @@ public:
         twist.angular.z = RIGHT_CURVE_ROT;
         ros::Time now = ros::Time::now();
         if (now - phaseStartTime > ros::Duration(RIGHT_CURVE_END_TIME) && find_left_line) {
-            changePhase("search_line");
+            if (curveAfterCrosswalk) {
+                curveAfterCrosswalk = false;
+                changePhase("crosswalk");
+            } else {
+                changePhase("search_line");
+            }
         } else if (now - phaseStartTime > ros::Duration(RIGHT_CURVE_END_TIME + RIGHT_CURVE_END_MARGIN_TIME)) {
-            changePhase("search_line");
+            if (curveAfterCrosswalk) {
+                curveAfterCrosswalk = false;
+                changePhase("crosswalk");
+            } else {
+                changePhase("search_line");
+            }
         }
         limitedTwistPub();
     }
