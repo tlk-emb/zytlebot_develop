@@ -93,7 +93,7 @@ class ImageConverter {
     // 定数宣言
     int BIRDSEYE_LENGTH, CAMERA_WIDTH, CAMERA_HEIGHT;
 
-    double BURGER_MAX_LIN_VEL, BURGER_MAX_ANG_VEL, RIGHT_CURVE_START_LOST_LINE_TIME, RIGHT_CURVE_END_MARGIN_TIME, RIGHT_CURVE_END_TIME,
+    double BURGER_MAX_LIN_VEL, BURGER_MAX_ANG_VEL, RIGHT_CURVE_START_LOST_LINE_TIME, LEFT_CURVE_START_LOST_LINE_TIME, RIGHT_CURVE_END_MARGIN_TIME, RIGHT_CURVE_END_TIME,
             RIGHT_CURVE_VEL , RIGHT_CURVE_ROT , LEFT_CURVE_END_TIME , LEFT_CURVE_END_MARGIN_TIME , LEFT_CURVE_VEL , LEFT_CURVE_ROT , LEFT_CURVE_AFTER_ROT ,
             AVOID_OBSTACLE_VEL , AVOID_OBSTACLE_ROT , AVOID_ROT_TIME , AVOID_ROT_STRAIGHT , AVOID_STRAIGHT_TIME , AVOID_BEFORE_STRAIGHT_MARGIN_TIME , INTERSECTION_PREDICTION_TIME_RATIO ,
             CROSSWALK_UNDER_MARGIN , INTERSECTION_PREDICTION_UNDER_MARGIN , INTERSECTION_CURVE_START_FLAG_RATIO , RUN_LINE , RUN_LINE_MARGIN , WIDTH_RATIO , HEIGHT_H , HEIGHT_L, INTERSECTION_STRAIGHT_TIME;
@@ -213,6 +213,7 @@ public:
         INTERSECTION_STRAIGHT_TIME =(double)params["intersection_straight_time"];
 
         RIGHT_CURVE_START_LOST_LINE_TIME = (double)params["right_curve_start_lost_line_time"];
+        LEFT_CURVE_START_LOST_LINE_TIME = (double)params["left_curve_start_lost_line_time"];
         RIGHT_CURVE_END_MARGIN_TIME = (double)params["right_curve_end_margin_time"];
         RIGHT_CURVE_END_TIME = (double)params["right_curve_end_time"];
 
@@ -597,7 +598,7 @@ public:
             }
         } else if (tileType == 3 && differenceDirection == 3) {
             // 左カーブ
-            if (now - line_lost_time > ros::Duration(RIGHT_CURVE_START_LOST_LINE_TIME)) {
+            if (now - line_lost_time > ros::Duration(LEFT_CURVE_START_LOST_LINE_TIME)) {
                 now_dir = (now_dir + 3) % 4;
                 changePhase("turn_left");
                 setNextTile();
