@@ -873,7 +873,7 @@ public:
             twist.angular.z = AVOID_OBSTACLE_ROT / 5;
         }else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME)) { // 右車線を反転させてライントレースすることで、左車線と同様のアルゴリズムで走らせる(注// アングルも逆)
             cv::Mat flipImg, flipAroundImg;
-            cv::flip(flipAroundImg, aroundWhiteBinary, 1);
+            cv::flip(aroundWhiteBinary, flipAroundImg, 1);
             cv::flip(road_white_binary, flipImg, 1);
             cv::Mat flip_left_roi(flipAroundImg, cv::Rect(BIRDSEYE_LENGTH / 2, 0, BIRDSEYE_LENGTH, BIRDSEYE_LENGTH));
 
