@@ -385,7 +385,6 @@ public:
         // 左レーンの発見フラグをリセット
         find_left_line = false;
 
-        system("clear");
         std::cout << "現在のフェーズ : " << now_phase << std::endl;
         std::string direction;
         switch (now_dir) {
@@ -441,7 +440,6 @@ public:
             obstacleAvoidance(road_white_binary, aroundWhiteBinary);
         } else if (now_phase == "intersection_straight") {
             double degree_average = intersectionStraight(road_clone);
-            detected_angle = degree_average;
             intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
             searchObject();
             limitedTwistPub();
