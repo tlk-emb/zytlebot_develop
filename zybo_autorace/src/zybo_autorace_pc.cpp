@@ -478,6 +478,7 @@ public:
         cv::moveWindow("road", 20, 20);
         cv::imshow("origin", caliblated);
         cv::moveWindow("origin", 400, 20);
+        testSkin(caliblated);
         cv::waitKey(3);
     }
 
@@ -737,7 +738,6 @@ public:
         // next_tileの更新
         next_tile_x = next_x;
         next_tile_y = next_y;
-
 
         setSearchType();
     }
@@ -1319,6 +1319,21 @@ public:
         if (fractionNum > 500) {
             changePhase("find_obs");
         }
+    }
+
+    void testSkin(cv::Mat image){
+        cv::Mat skin_mask, skin_image, skin_hsv_image, result_image;
+        // cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * 0.2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
+        cv::cvtColor(image, skin_hsv_image, CV_BGR2HSV);
+        cv::inRange(skin_hsv_image, cv::Scalar(0, 30, 60, 0),
+                    cv::Scalar(20, 150, 255, 0), skin_mask);
+        cv::bitwise_and(image, image, result_image, skin_mask);
+
+        cv::imshow("skin", aroundDebug);
+        cv::moveWindow("skin", 20, 120);
+
+        int fractionNum = cv::countNonZero(skin_mask);
+        std::cout << "肌色成分 : " << fractionNum << std::endl;
     }
 
     /*
