@@ -155,6 +155,7 @@ class ImageConverter {
 
     // カーブの次が横断歩道の場合、カーブ終了後横断歩道を認識するまで少しストップ
     bool curveAfterCrosswalk;
+    bool intersectionAfterCrosswalk;
 
     double mileage;
     double phaseRunMileage;
@@ -282,6 +283,7 @@ public:
         detected_angle = 0;
         intersectionDetectionFlag = false;
         curveAfterCrosswalk = false;
+        intersectionAfterCrosswalk = false;
         crosswalkFlag = false;
 
         searchType == "";
@@ -661,22 +663,26 @@ public:
                 }
 
             } else if (tileType == 8) {
+                // 十字路
                 if (nextDirection == 1) {
+                    intersectionAfterCrosswalk = true;
                     nowIntersectionCount++;
                     std::cout << "十字路を右に曲がる" << std::endl;
                     now_dir = (now_dir + 1) % 4;
                     changePhase("turn_right");
                     setNextTile();
                 } else if (nextDirection == 3) {
+                    intersectionAfterCrosswalk = true;
                     nowIntersectionCount++;
                     now_dir = (now_dir + 3) % 4;
                     changePhase("turn_left");
                     setNextTile();
+                } else {
+                    intersectionAfterCrosswalk = true;
+                    nowIntersectionCount++;
+                    changePhase("intersection_straight");
+                    setNextTile();
                 }
-            } else {
-                nowIntersectionCount++;
-                changePhase("intersection_straight");
-                setNextTile();
             }
         }
     }
@@ -689,10 +695,8 @@ public:
         int next_x = next_tile_x;
         int next_y = next_tile_y;
 
-        bool find_tile = false;
-
         // road4をスキップするために繰り返す
-        while (!find_tile) {
+        while (1) {
 
             // 今の進行方向によって次のタイルを検索
             // 0が南で右回り, 原点は左上
@@ -715,17 +719,19 @@ public:
                     break;
             }
 
-            // road4(ただの直線)でないかチェック
             int nextTile = map_data[next_y][next_x][0];
-
+            // road1,4(ただの直線)でないかチェック
+            if (nextTile == 2 || nextTile == 5 || nextTile == 6) {
+                if (!intersectionAfterCrosswalk) { // intersectionの直後の交差点は無視する
+                    break;
+                }
+            } else if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
+                break;
+            }
             // カーブの後はcurveAfterCrosswalkがtrueになっているので、直後のnextTileが横断歩道の時のみtrueのまま
             // 別の場合はcurveAfterCrosswalkをfalseにする
-            if (nextTile == 2 || nextTile == 5 || nextTile == 6) {
-                find_tile = true;
-            } else if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
-                find_tile = true;
-                curveAfterCrosswalk = false;
-            }
+            curveAfterCrosswalk = false;
+            intersectionAfterCrosswalk = false;
         }
 
         // next_tileの更新
@@ -779,6 +785,7 @@ public:
         limitedTwistPub();
         if (now - phaseStartTime >  ros::Duration(5.0)) {
             changePhase("straight");
+            setNextTile();
         }
     }
 

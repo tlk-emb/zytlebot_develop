@@ -154,6 +154,7 @@ class ImageConverter {
 
     // カーブの次が横断歩道の場合、カーブ終了後横断歩道を認識するまで少しストップ
     bool curveAfterCrosswalk;
+    bool intersectionAfterCrosswalk;
 
     double mileage;
     double phaseRunMileage;
@@ -277,6 +278,7 @@ public:
         phaseRunMileage = 0;
         intersectionDetectionFlag = false;
         curveAfterCrosswalk = false;
+        intersectionAfterCrosswalk = false;
         crosswalkFlag = false;
 
         searchType == "";
@@ -618,22 +620,26 @@ public:
                 }
 
             } else if (tileType == 8) {
+                // 十字路
                 if (nextDirection == 1) {
+                    intersectionAfterCrosswalk = true;
                     nowIntersectionCount++;
                     std::cout << "十字路を右に曲がる" << std::endl;
                     now_dir = (now_dir + 1) % 4;
                     changePhase("turn_right");
                     setNextTile();
                 } else if (nextDirection == 3) {
+                    intersectionAfterCrosswalk = true;
                     nowIntersectionCount++;
                     now_dir = (now_dir + 3) % 4;
                     changePhase("turn_left");
                     setNextTile();
+                } else {
+                    intersectionAfterCrosswalk = true;
+                    nowIntersectionCount++;
+                    changePhase("intersection_straight");
+                    setNextTile();
                 }
-            } else {
-                nowIntersectionCount++;
-                changePhase("intersection_straight");
-                setNextTile();
             }
         }
     }
@@ -646,10 +652,8 @@ public:
         int next_x = next_tile_x;
         int next_y = next_tile_y;
 
-        bool find_tile = false;
-
         // road4をスキップするために繰り返す
-        while (!find_tile) {
+        while (1) {
 
             // 今の進行方向によって次のタイルを検索
             // 0が南で右回り, 原点は左上
@@ -678,11 +682,14 @@ public:
             // カーブの後はcurveAfterCrosswalkがtrueになっているので、直後のnextTileが横断歩道の時のみtrueのまま
             // 別の場合はcurveAfterCrosswalkをfalseにする
             if (nextTile == 2 || nextTile == 5 || nextTile == 6) {
-                find_tile = true;
+                if (!intersectionAfterCrosswalk) { // intersectionの直後の交差点は無視する
+                    break;
+                }
             } else if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
-                find_tile = true;
-                curveAfterCrosswalk = false;
+                break;
             }
+            curveAfterCrosswalk = false;
+            intersectionAfterCrosswalk = false;
         }
 
         // next_tileの更新
@@ -737,6 +744,7 @@ public:
 
         limitedTwistPub();
         if (now - phaseStartTime >  ros::Duration(5.0)) {
+            setNextTile();
             changePhase("straight");
         }
     }
@@ -830,7 +838,7 @@ public:
         { // 直進向く寸前に反動を消す
             twist.linear.x = AVOID_OBSTACLE_VEL;
             twist.angular.z = AVOID_OBSTACLE_ROT / 5;
-        }else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME)) { // 右車線を反転させてライントレースすることで、左車線と同様のアルゴリズムで走らせる(注// アングルも逆)
+        } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME)) { // 右車線を反転させてライントレースすることで、左車線と同様のアルゴリズムで走らせる(注// アングルも逆)
             cv::Mat flipImg, flipAroundImg;
             cv::flip(aroundWhiteBinary, flipAroundImg, 1);
             cv::flip(road_white_binary, flipImg, 1);
