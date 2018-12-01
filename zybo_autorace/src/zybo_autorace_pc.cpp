@@ -1329,8 +1329,8 @@ public:
                     cv::Scalar(20, 150, 255, 0), skin_mask);
         cv::bitwise_and(image, image, result_image, skin_mask);
 
-        cv::imshow("skin", aroundDebug);
-        cv::moveWindow("skin", 20, 120);
+        cv::imshow("skin", result_image);
+        cv::moveWindow("skin", 20, 400);
 
         int fractionNum = cv::countNonZero(skin_mask);
         std::cout << "肌色成分 : " << fractionNum << std::endl;
