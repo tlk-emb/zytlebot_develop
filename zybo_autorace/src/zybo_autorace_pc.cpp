@@ -4,8 +4,10 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+#include <opencv2/videoio/videoio.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/video/background_segm.hpp>
 #include "unistd.h"
 #include <math.h>
 #include <stdio.h>
@@ -22,6 +24,9 @@
 
 
 #define PI 3.141592653589793
+
+using namespace std;
+using namespace cv;
 
 // 最初の交差点もしくはカーブ位置 dirは以下のように0が南で右回り
 // map_dataは下で書き換える必要がある
@@ -181,6 +186,10 @@ class ImageConverter {
 
     cv::Mat aroundDebug;
 
+    // BackgroundSubtractorMOG2
+    cv::Ptr<cv::BackgroundSubtractorMOG2> bgs;
+    cv::Mat bgmask, out_frame;
+
     // 歪補正に使う
     cv::Mat MapX, MapY, mapR;
 
@@ -292,6 +301,11 @@ public:
         // 歪補正の前計算
         mapR = cv::Mat::eye(3, 3, CV_64F);
         cv::initUndistortRectifyMap(camera_mtx, camera_dist, mapR, camera_mtx, cv::Size(640, 480), CV_32FC1, MapX, MapY);
+
+
+        // BGS
+        bgs = cv::createBackgroundSubtractorMOG2();
+        bgs->setVarThreshold(10);
 
         // カラー画像をサブスクライブ
         // if_zybo
@@ -477,7 +491,7 @@ public:
         cv::imshow("road", aroundDebug);
         cv::moveWindow("road", 20, 20);
         cv::imshow("origin", caliblated);
-        cv::moveWindow("origin", 400, 20);
+        cv::moveWindow("origin", 20, 20);
         testSkin(caliblated);
         cv::waitKey(3);
     }
@@ -1330,11 +1344,49 @@ public:
         cv::bitwise_and(image, image, result_image, skin_mask);
 
         cv::imshow("skin", result_image);
-        cv::moveWindow("skin", 20, 400);
+        cv::moveWindow("skin", 600, 20);
 
         int fractionNum = cv::countNonZero(skin_mask);
         std::cout << "肌色成分 : " << fractionNum << std::endl;
+
+        // BGS
+        bgs->apply(image, bgmask);
+        refineSegments(image, skin_mask, out_frame);
+        imshow("bgs output", out_frame);
+        cv::moveWindow("bgs output", 1200, 20);
     }
+
+    static void refineSegments(const Mat& img, Mat& mask, Mat& dst)
+    {
+        int niters = 2;
+        vector<vector<Point> > contours;
+        vector<Vec4i> hierarchy;
+        Mat temp;
+        erode(mask, temp, Mat(), Point(-1,-1), niters);
+        dilate(temp, temp, Mat(), Point(-1,-1), niters*2);
+        erode(temp, temp, Mat(), Point(-1,-1), niters);
+        findContours( temp, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE );
+        dst = Mat::zeros(img.size(), CV_8UC3);
+        if( contours.size() == 0 )
+            return;
+        // iterate through all the top-level contours,
+        // draw each connected component with its own random color
+        int idx = 0, largestComp = 0;
+        double maxArea = 0;
+        for( ; idx >= 0; idx = hierarchy[idx][0] )
+        {
+            const vector<Point>& c = contours[idx];
+            double area = fabs(contourArea(Mat(c)));
+            if( area > maxArea )
+            {
+                maxArea = area;
+                largestComp = idx;
+            }
+        }
+        Scalar color( 0, 0, 255 );
+        drawContours( dst, contours, largestComp, color, FILLED, LINE_8, hierarchy );
+    }
+
 
     /*
      * 交差点をテンプレートマッチングで検索する
