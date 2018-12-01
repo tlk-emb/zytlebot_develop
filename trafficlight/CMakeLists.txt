@@ -11,6 +11,9 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
 )
 
+catkin_package(
+)
+
 find_package(OpenCV REQUIRED)
 
 include_directories(
