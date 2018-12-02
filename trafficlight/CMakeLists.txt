@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(trafficlight)
+project(red_signal)
 
 set(CMAKE_CXX_FLAGS "g++ -std=c++11 -lm -g -fsigned-char -fpermissive -Wint-to-pointer-cast -O3")
 
