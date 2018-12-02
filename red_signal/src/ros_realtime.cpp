@@ -41,7 +41,8 @@ public:
             : it_(nh_) {
 
         // カラー画像をサブスクライブ
-        image_sub_ = it_.subscribe("/image_raw", 1,
+        // TODO subscribe先はtopicに応じて変更
+        image_sub_ = it_.subscribe("/camera/rgb/image_raw", 1,
                                    &ImageConverter::imageCb, this);
         image_pub_ = it_.advertise("/image_trafficlight", 1);
 
@@ -72,9 +73,10 @@ public:
         cv::Mat baseImage = cv_ptr->image;
 
         // baseImageをなんか処理する
+
+        // TODO 640*480以外の場合
+        // resize(baseImage, baseImage, cv::Size(), 640.0/baseImage.cols ,480.0/baseImage.rows);
         t1 = std::chrono::system_clock::now();
-        cv::Mat baseImage;
-        cap >> baseImage; // get a new frame from camera
         cv::Mat frame_copy = baseImage.clone();
 
         //prepare for removing arienai
@@ -82,41 +84,40 @@ public:
         cv::cvtColor(baseImage, hls, CV_RGB2HLS);
         int d[480][640];
         int sum = 0;
-        for(int y = 0; y < baseImage.rows; y++){
+        for (int y = 0; y < baseImage.rows; y++) {
             int tmpsum = 0;
-            for(int x = 0; x < baseImage.cols; x++){
+            for (int x = 0; x < baseImage.cols; x++) {
                 cv::Vec<unsigned char, 3> pix = hls.ptr<cv::Vec3b>(y)[x];
-                if((pix[0] < 20 || pix[0] > 200) && pix[1] > 128){
+                if ((pix[0] < 20 || pix[0] > 200) && pix[1] > 128) {
                     tmpsum++;
                 }
-                if(y == 0) d[y][x] = tmpsum;
-                else d[y][x] = d[y-1][x] + tmpsum;
+                if (y == 0) d[y][x] = tmpsum;
+                else d[y][x] = d[y - 1][x] + tmpsum;
             }
         }
-        for(int i = 0; i < 126; i++){
+
+        for (int i = 0; i < 126; i++) {
             cv::Mat out;
             int sy = w[i][0][0];
             int sx = w[i][1][0];
             int ey = w[i][0][1];
             int ex = w[i][1][1];
             //remove arienai
-            int satisfy_num = d[ey-1][ex-1] - d[ey-1][sx-1] - d[sy-1][ex-1] + d[sy-1][sx-1];
-            if(satisfy_num < (ey - sy) * (ex - sx) * 2 / 100) continue;
+            int satisfy_num = d[ey - 1][ex - 1] - d[ey - 1][sx - 1] - d[sy - 1][ex - 1] + d[sy - 1][sx - 1];
+            if (satisfy_num < (ey - sy) * (ex - sx) * 2 / 100) continue;
             // cout << "satisfy num" << satisfy_num << endl;
 
             cv::Mat cropped(baseImage, cv::Rect(sx, sy, ex - sx, ey - sy));
             // cv::imwrite("crop.png", cropped);
             float proba = test_one_image(cropped);
 
-            if(proba >= 0.70) rectangle(frame_copy, Point(sx, sy), Point(ex, ey), Scalar(0,0,200), 3); //x,y //Scaler = B,G,R
+            if (proba >= 0.70)
+                rectangle(frame_copy, Point(sx, sy), Point(ex, ey), Scalar(0, 0, 200), 3); //x,y //Scaler = B,G,R
         }
-        cv::imshow("window", frame_copy);
 
-        int key = cv::waitKey(1);
-        if(key == 113)//qボタンが押されたとき
-        {
-            break;//whileループから抜ける．
-        }
+        cv::imshow("window", frame_copy);
+        cv::waitKey(3);
+
         t2 = std::chrono::system_clock::now();
         //show fps
         double elapsed = (double)std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count();
@@ -125,7 +126,6 @@ public:
 
 
         std::cout << "publish something" << std::endl;
-
         // publish
         cv_ptr->image = frame_copy;
         image_pub_.publish(cv_ptr->toImageMsg());
