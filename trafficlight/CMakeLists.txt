@@ -24,5 +24,7 @@ include_directories(
 )
 
 
-add_executable(benchmark src/ros_benchmark.cpp src/xcalc_hog.c xcalc_hog_linux.c  src/xcalc_hog_sinit.c  src/xcolor_hist.c src/xcolor_hist_linux.c src/xcolor_hist_sinit.c src/linuxmisc.cpp src/linuxmmap.cpp)
+add_executable(benchmark src/ros_benchmark.cpp src/xcalc_hog.c src/xcalc_hog_linux.c  src/xcalc_hog_sinit.c  src/xcolor_hist.c src/xcolor_hist_linux.c src/xcolor_hist_sinit.c src/linuxmisc.cpp src/linuxmmap.cpp)
+add_executable(realtime src/realtime.cpp src/xcalc_hog.c src/xcalc_hog_linux.c  src/xcalc_hog_sinit.c  src/xcolor_hist.c src/xcolor_hist_linux.c src/xcolor_hist_sinit.c src/linuxmisc.cpp src/linuxmmap.cpp)
 target_link_libraries(benchmark ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+target_link_libraries(realtime ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})

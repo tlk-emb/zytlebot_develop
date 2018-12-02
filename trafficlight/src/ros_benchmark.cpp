@@ -64,6 +64,7 @@ public:
     {
         // 全てのウインドウは破壊
         cv::destroyAllWindows();
+        if(hwmode) hw_release();
     }
 
 
@@ -299,6 +300,12 @@ public:
 
 int main(int argc, char** argv)
 {
+    if(hwmode) hw_setup();
+
+    for(auto itr = widthkind.begin(); itr != widthkind.end(); ++itr) {
+        int width = *itr;
+        cout << width << ":" << mp[width].size() << endl;
+    }
     ros::init(argc, argv, "trafficlight");
     ImageConverter ic;
     ros::spin();
