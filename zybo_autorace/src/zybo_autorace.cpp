@@ -4,8 +4,10 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+#include <opencv2/videoio/videoio.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/video/background_segm.hpp>
 #include "unistd.h"
 #include <math.h>
 #include <stdio.h>
@@ -22,6 +24,11 @@
 
 
 #define PI 3.141592653589793
+
+#define DEBUG true
+
+using namespace std;
+using namespace cv;
 
 // 最初の交差点もしくはカーブ位置 dirは以下のように0が南で右回り
 // map_dataは下で書き換える必要がある
@@ -106,6 +113,7 @@ class ImageConverter {
 
 
     geometry_msgs::Twist twist;
+    geometry_msgs::Twist backupTwist;
 
     ros::Publisher twist_pub;
     // cv::Mat curve_image;
@@ -141,6 +149,7 @@ class ImageConverter {
     bool reachBottomRightLaneRightT;
     bool reachBottomRightLaneLeftT;
     bool reachBottomLeftLaneLeftT;
+    bool reachBottomLeftLaneStraightEnd;
 
     // 交差点の挙動決定のための配列の位置
     int nowIntersectionCount;
@@ -151,6 +160,9 @@ class ImageConverter {
     // 横断歩道の（停止線）の位置に来た時trueになる
     bool crosswalkFlag;
 
+    // 人形を見つけているかどうか
+    bool findFigureFlag;
+
 
     // カーブの次が横断歩道の場合、カーブ終了後横断歩道を認識するまで少しストップ
     bool curveAfterCrosswalk;
@@ -158,6 +170,7 @@ class ImageConverter {
 
     double mileage;
     double phaseRunMileage;
+    double detected_angle;
 
 
     // 加速するかしないか
@@ -177,6 +190,11 @@ class ImageConverter {
     cv::Mat template_curve;
     cv::Mat template_intersection;
 
+    cv::Mat aroundDebug;
+
+    // BackgroundSubtractorMOG2
+    cv::Ptr<cv::BackgroundSubtractorMOG2> bgs;
+    cv::Mat bgmask, out_frame;
 
     // 歪補正に使う
     cv::Mat MapX, MapY, mapR;
@@ -184,8 +202,8 @@ class ImageConverter {
 public:
     // コンストラクタ
     ImageConverter(){
-    // if pc
-            //: it_(nh_) {
+        // if pc
+        //: it_(nh_) {
 
 
         nh_.getParam("/zybo_autorace/autorace", params);
@@ -273,13 +291,16 @@ public:
         reachBottomRightLaneRightT = false;
         reachBottomRightLaneLeftT = false;
         reachBottomLeftLaneLeftT = false;
+        reachBottomLeftLaneStraightEnd = false;
         mostUnderLeftLaneLeftT = 0;
         nowIntersectionCount = 0;
         phaseRunMileage = 0;
+        detected_angle = 0;
         intersectionDetectionFlag = false;
         curveAfterCrosswalk = false;
         intersectionAfterCrosswalk = false;
         crosswalkFlag = false;
+        findFigureFlag = false;
 
         searchType == "";
 
@@ -287,6 +308,11 @@ public:
         // 歪補正の前計算
         mapR = cv::Mat::eye(3, 3, CV_64F);
         cv::initUndistortRectifyMap(camera_mtx, camera_dist, mapR, camera_mtx, cv::Size(640, 480), CV_32FC1, MapX, MapY);
+
+
+        // BGS
+        bgs = cv::createBackgroundSubtractorMOG2();
+        bgs->setVarThreshold(10);
 
         // カラー画像をサブスクライブ
         // if_zybo
@@ -352,6 +378,7 @@ public:
         cv::Mat base_image = cv_ptr->image;
         ////////*/
 
+        detected_angle = 0;
 
         cv::Mat hsv_image, color_mask, gray_image, birds_eye;
 
@@ -363,6 +390,7 @@ public:
         aroundImg = birdsEyeAround(caliblated);
         aroundWhiteBinary = whiteBinary(aroundImg);
 
+        if (DEBUG) aroundDebug = aroundWhiteBinary.clone();
 
         std::vector <cv::Vec4i> around_lines = getHoughLinesP(aroundWhiteBinary, 0, 10, 5);
 
@@ -387,6 +415,7 @@ public:
         // 左レーンの発見フラグをリセット
         find_left_line = false;
 
+        if(DEBUG) system("clear");
         std::cout << "現在のフェーズ : " << now_phase << std::endl;
         std::string direction;
         switch (now_dir) {
@@ -407,16 +436,18 @@ public:
 
 
         // ---------------controller----------------
-
         updateObject();
 
+        if (!findFigureFlag) {
 
+        }
         if (now_phase == "straight") {
             ros::Time now = ros::Time::now();
-            if (now - line_lost_time > ros::Duration(4.0) && map_data[next_tile_x][next_tile_y][0] == 8) {
+            if (now - line_lost_time > ros::Duration(2.0) && map_data[next_tile_x][next_tile_y][0] == 8) {
                 changePhase("intersection_straight");
             } else {
                 double degree_average = detectLane(left_roi);
+                detected_angle = degree_average;
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
                 intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
@@ -435,13 +466,12 @@ public:
         } else if (now_phase == "turn_left") {
             leftTurn();
         } else if (now_phase == "turn_right") {
-            intersectionDetectionByTemplateMatching(aroundWhiteBinary, 0);
-            searchObject();
             determinationRightTurn();
         } else if (now_phase == "find_obs") {
             obstacleAvoidance(road_white_binary, aroundWhiteBinary);
         } else if (now_phase == "intersection_straight") {
             double degree_average = intersectionStraight(road_clone);
+            detected_angle = degree_average;
             intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
             searchObject();
             limitedTwistPub();
@@ -450,15 +480,30 @@ public:
         }
 
         // ---------------controller end----------------
+        // 以下デバッグ出力
 
-        std::cout << "走行距離 : " << mileage << " 合計 "  << phaseRunMileage << std::endl;
-        std::cout << "実行時間 : " << ros::Time::now().toSec() - processingStartTime.toSec() << "s" << std::endl;
-        std::cout << "周期時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
-        // cycleTimeの更新
-        cycleTime = ros::Time::now();
+        if(DEBUG) {
+            testTemplateMatching(aroundWhiteBinary, template_right_T, cv::Scalar(0, 0, 100));
+            testTemplateMatching(aroundWhiteBinary, template_left_T, cv::Scalar(0, 100, 100));
+            testTemplateMatching(aroundWhiteBinary, template_under_T, cv::Scalar(100, 0, 0));
+            testTemplateMatching(aroundWhiteBinary, template_crosswalk, cv::Scalar(0, 255, 100));
+            testTemplateMatching(aroundWhiteBinary, template_intersection, cv::Scalar(255, 0, 0));
 
-        std::cout << "速度     : " <<twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
-        testOutputObject();
+            std::cout << "走行距離 : " << mileage << " 合計 " << phaseRunMileage << std::endl;
+            std::cout << "実行時間 : " << ros::Time::now().toSec() - processingStartTime.toSec() << "s" << std::endl;
+            std::cout << "周期時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
+            // cycleTimeの更新
+            cycleTime = ros::Time::now();
+
+            std::cout << "速度     : " << twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
+            testOutputObject();
+            cv::imshow("road", aroundDebug);
+            cv::moveWindow("road", 20, 20);
+            cv::imshow("origin", caliblated);
+            cv::moveWindow("origin", 20, 20);
+            testSkin(caliblated);
+            cv::waitKey(3);
+        }
     }
 
 ////////////////関数//////////////////
@@ -479,6 +524,7 @@ public:
         reachBottomRightLaneLeftT = false;
         reachBottomRightLaneRightT = false;
         intersectionDetectionFlag = false;
+        reachBottomLeftLaneStraightEnd = false;
         crosswalkFlag = false;
         line_lost_time = ros::Time::now();
     }
@@ -500,6 +546,12 @@ public:
         for (size_t i = 0; i < left_lines.size(); i++) {
             STRAIGHT left_line = toStraightStruct(left_lines[i]);
             if (left_line.degree < 30 && left_line.degree > -30) {
+
+                if (DEBUG) {
+                    cv::line(aroundDebug, cv::Point(left_lines[i][0] + BIRDSEYE_LENGTH / 2, left_lines[i][1]),
+                             cv::Point(left_lines[i][2] + BIRDSEYE_LENGTH / 2, left_lines[i][3]), cv::Scalar(0, 0, 255),
+                             3, 8);
+                }
                 degree_average_sum += left_line.degree;
                 if (most_left_middle_x > std::abs(left_line.middle.x - BIRDSEYE_LENGTH * 0.5)) {
                     most_left_middle_x = std::abs(left_line.middle.x - BIRDSEYE_LENGTH * 0.5);
@@ -513,7 +565,16 @@ public:
         if (find_left_line) {
             line_lost_time = ros::Time::now();
             degree_average = degree_average_sum / average_cnt;
+            if (DEBUG) {
+                cv::line(aroundDebug, cv::Point(detected_line_x + BIRDSEYE_LENGTH, 0),
+                         cv::Point(detected_line_x + BIRDSEYE_LENGTH, BIRDSEYE_LENGTH), cv::Scalar(0, 255, 255), 3, 8);
+            }
         }
+
+        std::cout << "左車線の検知 : " << find_left_line << " | 検知数 = " << average_cnt << std::endl;
+        std::cout << "推定された左車線の位置 : " << detected_line_x << std::endl;
+        std::cout << "全体の傾き : " << degree_average << std::endl;
+
         return degree_average;
     }
 
@@ -676,11 +737,8 @@ public:
                     break;
             }
 
-            // road4(ただの直線)でないかチェック
             int nextTile = map_data[next_y][next_x][0];
-
-            // カーブの後はcurveAfterCrosswalkがtrueになっているので、直後のnextTileが横断歩道の時のみtrueのまま
-            // 別の場合はcurveAfterCrosswalkをfalseにする
+            // road1,4(ただの直線)でないかチェック
             if (nextTile == 2 || nextTile == 5 || nextTile == 6) {
                 if (!intersectionAfterCrosswalk) { // intersectionの直後の交差点は無視する
                     break;
@@ -688,6 +746,8 @@ public:
             } else if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
                 break;
             }
+            // カーブの後はcurveAfterCrosswalkがtrueになっているので、直後のnextTileが横断歩道の時のみtrueのまま
+            // 別の場合はcurveAfterCrosswalkをfalseにする
             curveAfterCrosswalk = false;
             intersectionAfterCrosswalk = false;
         }
@@ -695,9 +755,6 @@ public:
         // next_tileの更新
         next_tile_x = next_x;
         next_tile_y = next_y;
-
-        std::cout << "next tile " << next_x << " " << next_y << "   type=" << map_data[next_y][next_x][0] << std::endl;
-        std::cout << "now dir  " << now_dir << std::endl;
 
         setSearchType();
     }
@@ -744,8 +801,8 @@ public:
 
         limitedTwistPub();
         if (now - phaseStartTime >  ros::Duration(5.0)) {
-            setNextTile();
             changePhase("straight");
+            setNextTile();
         }
     }
 
@@ -838,7 +895,7 @@ public:
         { // 直進向く寸前に反動を消す
             twist.linear.x = AVOID_OBSTACLE_VEL;
             twist.angular.z = AVOID_OBSTACLE_ROT / 5;
-        } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME)) { // 右車線を反転させてライントレースすることで、左車線と同様のアルゴリズムで走らせる(注// アングルも逆)
+        }else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME)) { // 右車線を反転させてライントレースすることで、左車線と同様のアルゴリズムで走らせる(注// アングルも逆)
             cv::Mat flipImg, flipAroundImg;
             cv::flip(aroundWhiteBinary, flipAroundImg, 1);
             cv::flip(road_white_binary, flipImg, 1);
@@ -974,7 +1031,7 @@ public:
             // 車線が見つからなかった場合、LeftRoadLeftTで最下のものを基準に
             line_lost_cnt += 1;
             updateLeftLine(road_white_binary);
-            twist.angular.z = (BIRDSEYE_LENGTH * RUN_LINE - detected_line_x) / 400;
+            twist.angular.z = (BIRDSEYE_LENGTH * RUN_LINE - detected_line_x) / 600;
         }
     }
 
@@ -983,6 +1040,13 @@ public:
         if (twist.linear.x < 0) twist.linear.x = 0;
         if (twist.angular.z > BURGER_MAX_ANG_VEL) twist.angular.z = BURGER_MAX_ANG_VEL;
         if ((twist.angular.z < 0 - BURGER_MAX_ANG_VEL)) twist.angular.z = 0 - BURGER_MAX_ANG_VEL;
+        twist_pub.publish(twist);
+    }
+
+    void backupTwistPub() {
+        backupTwist = twist;
+        twist.linear.x = 0;
+        twist.angular.z = 0;
         twist_pub.publish(twist);
     }
 
@@ -1014,6 +1078,15 @@ public:
         }
 
         limitedTwistPub();
+    }
+
+    /*
+     * 人形を見つけて止まっているとき、phaseStartTimeをその分遅らせる
+     *
+     */
+    void stopForFigure() {
+        phaseStartTime += ros::Duration(ros::Time::now() - cycleTime);
+
     }
 
     void searchRightLaneRightT(bool nowFindRightLaneRightT) {
@@ -1281,6 +1354,75 @@ public:
         }
     }
 
+    void testSkin(cv::Mat image){
+        cv::Mat skin_mask, skin_image, skin_hsv_image, result_image;
+        // cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * 0.2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
+        cv::cvtColor(image, skin_hsv_image, CV_BGR2HSV);
+        cv::inRange(skin_hsv_image, cv::Scalar(0, 30, 60, 0),
+                    cv::Scalar(20, 255, 255, 0), skin_mask);
+        cv::bitwise_and(image, image, result_image, skin_mask);
+
+        cv::imshow("skin", result_image);
+        cv::moveWindow("skin", 600, 20);
+
+        int fractionNum = cv::countNonZero(skin_mask);
+        std::cout << "肌色成分 : " << fractionNum << std::endl;
+
+        // BGS
+        bgs->apply(image, bgmask);
+        refineSegments(image, skin_mask, out_frame);
+        imshow("bgs output", out_frame);
+        cv::moveWindow("bgs output", 1200, 20);
+    }
+
+    /*
+     * 人形を判別した長方形範囲rectの左辺rect.xが推定路線より右かつ、底辺rect.y+rect.heightが一定値以上なら止まるようにフラグを立てる
+     * ただし、次が横断歩道かつ横断歩道フラグがonかつ、青信号が検知されていない時は、左辺rect.xがdetected_xより左でも、底辺rect.y+rect.heightが一定値以下なら止まる
+    */
+    void searchFigure(){
+    }
+
+    static void refineSegments(const Mat& img, Mat& mask, Mat& dst)
+    {
+        int niters = 2;
+        vector<vector<Point> > contours;
+        vector<Vec4i> hierarchy;
+        Mat temp;
+        erode(mask, temp, Mat(), Point(-1,-1), niters);
+        dilate(temp, temp, Mat(), Point(-1,-1), niters*2);
+        erode(temp, temp, Mat(), Point(-1,-1), niters);
+        findContours( temp, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE );
+        dst = Mat::zeros(img.size(), CV_8UC3);
+        if( contours.size() == 0 )
+            return;
+        // iterate through all the top-level contours,
+        // draw each connected component with its own random color
+        int idx = 0, largestComp = 0;
+        double maxArea = 0;
+        for( ; idx >= 0; idx = hierarchy[idx][0] )
+        {
+            const vector<Point>& c = contours[idx];
+            double area = fabs(contourArea(Mat(c)));
+            if( area > maxArea )
+            {
+                maxArea = area;
+                largestComp = idx;
+            }
+        }
+        Scalar color( 0, 0, 255 );
+        Rect rect = boundingRect(contours[largestComp]);
+        //Box box = cv.boxPoints(rect);
+        cv::rectangle(dst, cv::Point(rect.x,rect.y), cv::Point(rect.x + rect.width, rect.height), cv::Scalar(0,0,200), 3, 4);
+        drawContours( dst, contours, largestComp, color, FILLED, LINE_8, hierarchy );
+
+        src_pnt[0] = cv::Point(width * (0.5 - width_ratio), height * height_h);
+        src_pnt[1] = cv::Point(0, height * height_l);
+
+        //imshow("temp", temp);
+        // cv::moveWindow("temp", 1200, 20);
+    }
+
+
     /*
      * 交差点をテンプレートマッチングで検索する
      * T字路の場合、右T(right_T)、左T(left_T)、下T(under_T)の３種類
@@ -1324,18 +1466,38 @@ public:
 
             cv::Mat searchRoi(aroundWhiteBinary, cv::Rect(searchLeftX, 0, BIRDSEYE_LENGTH * 1.5, BIRDSEYE_LENGTH));
 
-            cv::matchTemplate(searchRoi, template_img, result, cv::TM_CCORR_NORMED);
+            cv::matchTemplate(searchRoi, template_rot, result, cv::TM_CCORR_NORMED);
             cv::Point maxPt;
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
             std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
+            // cv::rectangle(aroundDebug, cv::Point(searchLeftX + maxPt.x, maxPt.y), cv::Point(searchLeftX + maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(255 * maxVal, 255 * maxVal, 255 * maxVal), 2, 8, 0);
             if (maxVal > 0.75) {
-                // cv::rectangle(aroundWhiteBinary, maxPt, cv::Point(maxPt.x + template_img.cols, maxPt.y + template_img.rows), cv::Scalar(0, 255, 255), 2, 8, 0);
-                addObject(searchType, searchLeftX + maxPt.x + template_img.cols / 2, maxPt.y + template_img.rows / 2);
+                addObject(searchType, searchLeftX + maxPt.x  + template_right_T.cols / 2, maxPt.y + template_right_T.rows / 2);
                 std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
             }
         }
     }
 
+    void testTemplateMatching(cv::Mat aroundWhiteBinary, cv::Mat template_img, cv::Scalar color) {
+        double maxVal;
+        cv::Mat result;
+
+        // 傾きを元に元画像を回転
+        cv::Mat affine = cv::getRotationMatrix2D(cv::Point2f(template_img.cols / 2 , template_img.rows / 2), detected_angle * -0.7, 1.0);
+        cv::Mat template_rot;
+        cv::warpAffine(template_img, template_rot, affine, template_img.size(), cv::INTER_CUBIC);
+        cv::matchTemplate(aroundWhiteBinary, template_rot, result, cv::TM_CCORR_NORMED);
+        cv::Point maxPt;
+        cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
+        std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
+        if (maxVal > 0.75) {
+            if (DEBUG) {
+                cv::rectangle(aroundDebug, cv::Point(maxPt.x, maxPt.y),
+                              cv::Point(maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows),
+                              color, 2, 8, 0);
+            }
+        }
+    }
 
     // 現在のオブジェクト状況を出力
     void testOutputObject() {
@@ -1406,6 +1568,9 @@ public:
                         reachBottomRightLaneLeftT = true;
                     } else if (obj.objType == "right_lane_right_T") {
                         reachBottomRightLaneRightT = true;
+                    } else if (obj.objType == "left_lane_end") {
+                        // std::cout << "left lane end = true " << std::endl;
+                        reachBottomLeftLaneStraightEnd = true;
                     }
                 }
                 itr = objects.erase(itr);
@@ -1420,13 +1585,21 @@ public:
 int main(int argc, char **argv) {
 
     // キャリブレーションファイル読み込み
-    cv::FileStorage fs("/home/ubuntu/catkin_ws/src/zybo_autorace/calibration.yml", cv::FileStorage::READ);
+    if (DEBUG) {
+        cv::FileStorage fs("/home/sou/catkin_ws/src/zybo_autorace/calibration.yml", cv::FileStorage::READ);
+    } else {
+        cv::FileStorage fs("/home/ubuntu/catkin_ws/src/zybo_autorace/calibration.yml", cv::FileStorage::READ);
+    };
     fs["mtx"] >> camera_mtx;
     fs["dist"] >> camera_dist;
     fs.release();
 
     // 進行方向読み込み
-    std::ifstream ifs("/home/ubuntu/catkin_ws/src/zybo_autorace/honsen_dir.txt");
+    if (DEBUG) {
+        std::ifstream ifs("/home/sou/catkin_ws/src/zybo_autorace/honsen_dir.txt");
+    } else {
+        std::ifstream ifs("/home/ubuntu/catkin_ws/src/zybo_autorace/honsen_dir.txt");
+    }
     std::string str;
     if (ifs.fail()) {
         std::cerr << "text file load fail" << std::endl;
