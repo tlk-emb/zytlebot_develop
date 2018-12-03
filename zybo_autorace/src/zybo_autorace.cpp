@@ -1415,8 +1415,11 @@ public:
         cv::rectangle(dst, cv::Point(rect.x,rect.y), cv::Point(rect.x + rect.width, rect.height), cv::Scalar(0,0,200), 3, 4);
         drawContours( dst, contours, largestComp, color, FILLED, LINE_8, hierarchy );
 
+        /*
+         * 傾きでうまいことしたい
         src_pnt[0] = cv::Point(width * (0.5 - width_ratio), height * height_h);
         src_pnt[1] = cv::Point(0, height * height_l);
+         */
 
         //imshow("temp", temp);
         // cv::moveWindow("temp", 1200, 20);
@@ -1584,22 +1587,26 @@ public:
 
 int main(int argc, char **argv) {
 
+    string filename;
+
     // キャリブレーションファイル読み込み
     if (DEBUG) {
-        cv::FileStorage fs("/home/sou/catkin_ws/src/zybo_autorace/calibration.yml", cv::FileStorage::READ);
+        filename = "/home/sou/catkin_ws/src/zybo_autorace/calibration.yml";
     } else {
-        cv::FileStorage fs("/home/ubuntu/catkin_ws/src/zybo_autorace/calibration.yml", cv::FileStorage::READ);
-    };
+        filename = "/home/ubuntu/catkin_ws/src/zybo_autorace/calibration.yml";
+    }
+    cv::FileStorage fs("/home/sou/catkin_ws/src/zybo_autorace/calibration.yml", cv::FileStorage::READ);
     fs["mtx"] >> camera_mtx;
     fs["dist"] >> camera_dist;
     fs.release();
 
     // 進行方向読み込み
     if (DEBUG) {
-        std::ifstream ifs("/home/sou/catkin_ws/src/zybo_autorace/honsen_dir.txt");
+        filename = "/home/sou/catkin_ws/src/zybo_autorace/honsen_dir.txt";
     } else {
-        std::ifstream ifs("/home/ubuntu/catkin_ws/src/zybo_autorace/honsen_dir.txt");
+        filename = "/home/ubuntu/catkin_ws/src/zybo_autorace/honsen_dir.txt";
     }
+    std::ifstream ifs(filename);
     std::string str;
     if (ifs.fail()) {
         std::cerr << "text file load fail" << std::endl;
