@@ -971,13 +971,14 @@ public:
 
         // 複数あった場合、直前のライントレースの結果との差を利用する
         int temp_dif = BIRDSEYE_LENGTH / 2;
+        double detectHeight = 0.7; // TODO 定数にする
         // uchar *road_hough_bottom = road_hough.ptr<uchar>(BIRDSEYE_LENGTH - 1);
         for (int i = 0; i < detected_line_x + BIRDSEYE_LENGTH / 10; i++) {
-            int p = road_hough.at<uchar>(BIRDSEYE_LENGTH * HEIGHT_L - 1, i);
+            int p = road_hough.at<uchar>(BIRDSEYE_LENGTH * detectHeight  - 1, i);
             if (p) {
                 for (int j = i + 1; j < i + BIRDSEYE_LENGTH / 10; j++) {
 
-                    int q = road_hough.at<uchar>(BIRDSEYE_LENGTH * HEIGHT_L - 1, j);
+                    int q = road_hough.at<uchar>(BIRDSEYE_LENGTH * detectHeight - 1, j);
                     if (q) {
                         int this_dif = std::abs((i + j) / 2 - detected_line_x);
                         if (this_dif < temp_dif) {
@@ -1514,14 +1515,14 @@ public:
             OBJECT obj = *itr;
 
             // 走行距離分Y座標を修正
-            obj.beforeY = obj.beforeY + mileage*10;
+            obj.beforeY = obj.beforeY + mileage*3.5;
 
             // オブジェクトが一定位置に見えたら曲がる(止まる)フラグを立てる場合
             if (obj.objType == "crosswalk") {
-                if (obj.beforeY >100 -  CROSSWALK_UNDER_MARGIN)  {
+                if (obj.beforeY > BIRDSEYE_LENGTH -  CROSSWALK_UNDER_MARGIN)  {
                     crosswalkFlag = true;
                 }
-            } else if (obj.beforeY >100 -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
+            } else if (obj.beforeY > BIRDSEYE_LENGTH -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
                 if (obj.findCnt > 1) {
                     if (obj.objType == "right_T" || obj.objType == "left_T" || obj.objType == "under_T" || obj.objType == "intersection") {
                         intersectionDetectionFlag = true;
