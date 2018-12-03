@@ -111,6 +111,7 @@ class ImageConverter {
 
 
     geometry_msgs::Twist twist;
+    geometry_msgs::Twist backupTwist;
 
     ros::Publisher twist_pub;
     // cv::Mat curve_image;
@@ -156,6 +157,9 @@ class ImageConverter {
 
     // 横断歩道の（停止線）の位置に来た時trueになる
     bool crosswalkFlag;
+
+    // 人形を見つけているかどうか
+    bool findFigureFlag;
 
 
     // カーブの次が横断歩道の場合、カーブ終了後横断歩道を認識するまで少しストップ
@@ -294,6 +298,7 @@ public:
         curveAfterCrosswalk = false;
         intersectionAfterCrosswalk = false;
         crosswalkFlag = false;
+        findFigureFlag = false;
 
         searchType == "";
 
@@ -433,6 +438,9 @@ public:
         // ---------------controller----------------
         updateObject();
 
+        if (!findFigureFlag) {
+
+        }
         if (now_phase == "straight") {
             ros::Time now = ros::Time::now();
             if (now - line_lost_time > ros::Duration(4.0) && map_data[next_tile_x][next_tile_y][0] == 8) {
@@ -1040,6 +1048,13 @@ public:
         twist_pub.publish(twist);
     }
 
+    void backupTwistPub() {
+        backupTwist = twist;
+        twist.linear.x = 0;
+        twist.angular.z = 0;
+        twist_pub.publish(twist);
+    }
+
     // ラインが見つからないときに首を振ることで直線を探す
     void searchLine() {
         ros::Time now = ros::Time::now();
@@ -1068,6 +1083,15 @@ public:
         }
 
         limitedTwistPub();
+    }
+
+    /*
+     * 人形を見つけて止まっているとき、phaseStartTimeをその分遅らせる
+     *
+     */
+    void stopForFigure() {
+        phaseStartTime += ros::Duration(ros::Time::now() - cycleTime);
+
     }
 
     void searchRightLaneRightT(bool nowFindRightLaneRightT) {
@@ -1354,6 +1378,13 @@ public:
         refineSegments(image, skin_mask, out_frame);
         imshow("bgs output", out_frame);
         cv::moveWindow("bgs output", 1200, 20);
+    }
+
+    /*
+     * 人形を判別した長方形範囲rectの左辺rect.xが推定路線より右かつ、底辺rect.y+rect.heightが一定値以上なら止まるようにフラグを立てる
+     * ただし、次が横断歩道かつ横断歩道フラグがonかつ、青信号が検知されていない時は、左辺rect.xがdetected_xより左でも、底辺rect.y+rect.heightが一定値以下なら止まる
+    */
+    void searchFigure(){
     }
 
     static void refineSegments(const Mat& img, Mat& mask, Mat& dst)
