@@ -1340,7 +1340,7 @@ public:
         // cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * 0.2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
         cv::cvtColor(image, skin_hsv_image, CV_BGR2HSV);
         cv::inRange(skin_hsv_image, cv::Scalar(0, 30, 60, 0),
-                    cv::Scalar(20, 150, 255, 0), skin_mask);
+                    cv::Scalar(20, 255, 255, 0), skin_mask);
         cv::bitwise_and(image, image, result_image, skin_mask);
 
         cv::imshow("skin", result_image);
@@ -1384,7 +1384,16 @@ public:
             }
         }
         Scalar color( 0, 0, 255 );
+        Rect rect = boundingRect(contours[largestComp]);
+        //Box box = cv.boxPoints(rect);
+        cv::rectangle(dst, cv::Point(rect.x,rect.y), cv::Point(rect.x + rect.width, rect.height), cv::Scalar(0,0,200), 3, 4);
         drawContours( dst, contours, largestComp, color, FILLED, LINE_8, hierarchy );
+
+        src_pnt[0] = cv::Point(width * (0.5 - width_ratio), height * height_h);
+        src_pnt[1] = cv::Point(0, height * height_l);
+        
+        //imshow("temp", temp);
+        // cv::moveWindow("temp", 1200, 20);
     }
 
 
