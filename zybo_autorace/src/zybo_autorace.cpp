@@ -465,7 +465,7 @@ public:
         } else if (now_phase == "turn_left") {
             leftTurn();
         } else if (now_phase == "turn_right") {
-            determinationRightTurn();
+            curveDetectLane(aroundWhiteBinary);
         } else if (now_phase == "find_obs") {
             obstacleAvoidance(road_white_binary, aroundWhiteBinary);
         } else if (now_phase == "intersection_straight") {
@@ -502,7 +502,7 @@ public:
             cv::moveWindow("road", 20, 20);
             cv::imshow("origin", caliblated);
             cv::moveWindow("origin", 400, 20);
-            testSkin(caliblated);
+            //testSkin(caliblated);
             cv::waitKey(3);
         }
     }
@@ -924,6 +924,70 @@ public:
         }
         limitedTwistPub();
     }
+
+
+    /*
+     * 交差点の右カーブの補正
+     * カーブ中に目的のレーンの左車線を検索し、検知した左車線の延長がRUN_LINEに来るようにする
+     */
+    void curveDetectLane(cv::Mat image){
+        ros::Time now = ros::Time::now();
+        if (now - phaseStartTime > ros::Duration(RIGHT_CURVE_END_TIME + RIGHT_CURVE_END_MARGIN_TIME)) {
+            changePhase("search_line");
+        } else if (now - phaseStartTime > ros::Duration(RIGHT_CURVE_END_TIME)) {
+            if (find_left_line) {
+                changePhase("search_line");
+            } else {
+                // ハフ変換
+                cv::Mat temp_dst;
+                cv::Canny(image, temp_dst, 50, 200, 3);
+                std::vector <cv::Vec4i> left_lines;
+                cv::HoughLinesP(temp_dst, left_lines, 1, CV_PI / 180, 20, 40, 5);
+
+                double temp_detect_line = 0.0;
+                int runLine = BIRDSEYE_LENGTH * (1 + RUN_LINE);
+
+                // 角度が0~60の直線を検出して表示
+                for (size_t i = 0; i < left_lines.size(); i++) {
+                    STRAIGHT left_line = toStraightStruct(left_lines[i]);
+                    if (left_line.degree < 90 && left_line.degree > 0) {
+                        if (left_line.middle.x < BIRDSEYE_LENGTH * 1.5 && left_line.middle.x > BIRDSEYE_LENGTH * 0.5) {
+                            if (DEBUG) {
+                                cv::line(aroundDebug, cv::Point(left_lines[i][0], left_lines[i][1]),
+                                         cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
+                            }
+                            // left_linesからBIRDSEYE_LENGTH * 0.7に到達する地点でのx座標を推定し、BIRDSEYE_LENGTH + RUN_LINEとのずれによって
+                            // 現在のLEFT_CURVE_VEL, LEFT_CURVE_ROTを補正する。
+                            if (temp_detect_line == 0) {
+                                temp_detect_line = left_lines[i][0] - (BIRDSEYE_LENGTH - left_lines[i][1]) * (left_lines[i][2] - left_lines[i][0]) / (left_lines[i][1] - left_lines[i][3]);
+                                std::cout << "temp_detect_line   " <<  temp_detect_line << std::endl;
+                            } else {
+                                double temp = left_lines[i][0] - (BIRDSEYE_LENGTH - left_lines[i][1]) * (left_lines[i][2] - left_lines[i][0]) / (left_lines[i][1] - left_lines[i][3]);
+                                if (abs(runLine - temp) < abs(runLine - temp_detect_line)) {
+                                    temp_detect_line = temp;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (DEBUG) {
+                    cv::line(aroundDebug, cv::Point(temp_detect_line, 0),
+                             cv::Point(temp_detect_line, BIRDSEYE_LENGTH), cv::Scalar(0, 255, 255), 3, 8);
+                }
+                twist.linear.x = RIGHT_CURVE_VEL;
+                if (temp_detect_line == 0) {
+                    twist.angular.z = RIGHT_CURVE_ROT;
+                } else {
+                    twist.angular.z = RIGHT_CURVE_ROT + (BIRDSEYE_LENGTH * (1 + RUN_LINE) - temp_detect_line) / 100;
+                }
+            }
+        } else {
+            twist.linear.x = RIGHT_CURVE_VEL;
+            twist.angular.z = RIGHT_CURVE_ROT;
+        }
+        limitedTwistPub();
+    }
+
 
     // 障害物検知
     // 決め打ちで右にカーブし、決め打ちで左に戻る
