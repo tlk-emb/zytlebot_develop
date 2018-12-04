@@ -854,12 +854,12 @@ public:
 
     // 検知しながら左カーブ
     // TODO 曲がるタイミングが重要！
-    void detectedLeftTurn(aroundImage) {
+    void detectedLeftTurn(cv::Mat aroundImage) {
         // 左側をハフ変換
         cv::Mat temp_dst;
         cv::Canny(aroundImage, temp_dst, 50, 200, 3);
         std::vector <cv::Vec4i> left_lines;
-        cv::HoughLinesP(temp_dst, left_lines, 1, CV_PI / 180, threshold, minLineLength, maxLineGap);
+        cv::HoughLinesP(temp_dst, left_lines, 1, CV_PI / 180,  20, 40, 5);
         double temp_detect_line = 0.0;
         int runLine = BIRDSEYE_LENGTH * (1 + RUN_LINE);
 
@@ -868,7 +868,7 @@ public:
         for (size_t i = 0; i < left_lines.size(); i++) {
             STRAIGHT left_line = toStraightStruct(left_lines[i]);
             if (left_line.degree < 0 && left_line.degree > - 60 ) {
-                if(left_line.middle > BIRDSEYE_LENGTH * 0.5 && left_line.middle < BIRDSEYE_LENGTH * 1.5)
+                if(left_line.middle.x > BIRDSEYE_LENGTH * 0.5 && left_line.middle.x < BIRDSEYE_LENGTH * 1.5)
                 if (DEBUG) {
                     cv::line(aroundDebug, cv::Point(left_lines[i][0], left_lines[i][1]),
                              cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255),

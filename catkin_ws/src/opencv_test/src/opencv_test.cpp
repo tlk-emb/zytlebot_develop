@@ -22,6 +22,7 @@
 
 
 #define PI 3.141592653589793
+#define DEBUG true
 
 // 最初の交差点もしくはカーブ位置 dirは以下のように0が南で右回り
 // map_dataは下で書き換える必要がある
@@ -290,7 +291,7 @@ public:
 
         //  処理した挙動をパブリッシュ
         //twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
-        twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel2", 1000);
+        twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
         // 0.1秒ごとに制御を呼び出す
         //timer = nh.createTimer(ros::Duration(0.1), &ImageConverter::timerCallback, this);
 
@@ -408,12 +409,11 @@ public:
                 changePhase("search_line");
             } else {
                 double degree_average = detectLane(left_roi);
-                curveDetectLane(aroundWhiteBinary);
                 detected_angle = degree_average;
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
                 intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
-                // searchObject();
+                searchObject();
                 lineTrace(degree_average, road_white_binary);
                 limitedTwistPub();
             }
@@ -428,9 +428,9 @@ public:
         } else if (now_phase == "turn_left") {
             leftTurn();
         } else if (now_phase == "turn_right") {
-            intersectionDetectionByTemplateMatching(aroundWhiteBinary, 0);
-            searchObject();
-            determinationRightTurn();
+            //intersectionDetectionByTemplateMatching(aroundWhiteBinary, 0);
+            //searchObject();
+            curveDetectLane(aroundWhiteBinary);
         } else if (now_phase == "find_obs") {
             obstacleAvoidance(road_white_binary, aroundWhiteBinary);
         } else if (now_phase == "intersection_straight") {
@@ -491,28 +491,6 @@ public:
         line_lost_time = ros::Time::now();
     }
 
-    /*
-     * 交差点の右カーブの補正
-     * カーブ中に目的のレーンの左車線を検索し、検知した左車線の延長がRUN_LINEに来るようにする
-     */
-    void curveDetectLane(cv::Mat image){
-        // ハフ変換
-        cv::Mat temp_dst;
-        cv::Canny(image, temp_dst, 50, 200, 3);
-        std::vector <cv::Vec4i> left_lines;
-        cv::HoughLinesP(temp_dst, left_lines, 1, CV_PI / 180, 20, 40, 5);
-
-        // 角度が0~60の直線を検出して表示
-        for (size_t i = 0; i < left_lines.size(); i++) {
-            STRAIGHT left_line = toStraightStruct(left_lines[i]);
-            if (left_line.degree < 60 && left_line.degree > 0) {
-                if (left_line.middle < BIRDSEYE_LENGTH * 1.5 && left_line.middle > BIRDSEYE_LENGTH * 0.5) {
-                    cv::line(aroundDebug, cv::Point(left_lines[i][0], left_lines[i][1]),
-                             cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
-                }
-            }
-        }
-    }
 
     // 左車線について
     // 角度平均をとり、全体の角度が垂直になるようにする
@@ -838,6 +816,68 @@ public:
             changePhase("search_line");
         } else if (now - phaseStartTime > ros::Duration(LEFT_CURVE_END_TIME)) {
             twist.angular.z = LEFT_CURVE_AFTER_ROT;
+        }
+        limitedTwistPub();
+    }
+
+    /*
+     * 交差点の右カーブの補正
+     * カーブ中に目的のレーンの左車線を検索し、検知した左車線の延長がRUN_LINEに来るようにする
+     */
+    void curveDetectLane(cv::Mat image){
+        ros::Time now = ros::Time::now();
+        if (now - phaseStartTime > ros::Duration(RIGHT_CURVE_END_TIME + RIGHT_CURVE_END_MARGIN_TIME)) {
+            changePhase("search_line");
+        } else if (now - phaseStartTime > ros::Duration(RIGHT_CURVE_END_TIME)) {
+            if (find_left_line) {
+                changePhase("search_line");
+            } else {
+                // ハフ変換
+                cv::Mat temp_dst;
+                cv::Canny(image, temp_dst, 50, 200, 3);
+                std::vector <cv::Vec4i> left_lines;
+                cv::HoughLinesP(temp_dst, left_lines, 1, CV_PI / 180, 20, 40, 5);
+
+                double temp_detect_line = 0.0;
+                int runLine = BIRDSEYE_LENGTH * (1 + RUN_LINE);
+
+                // 角度が0~60の直線を検出して表示
+                for (size_t i = 0; i < left_lines.size(); i++) {
+                    STRAIGHT left_line = toStraightStruct(left_lines[i]);
+                    if (left_line.degree < 90 && left_line.degree > 0) {
+                        if (left_line.middle.x < BIRDSEYE_LENGTH * 1.5 && left_line.middle.x > BIRDSEYE_LENGTH * 0.5) {
+                            if (DEBUG) {
+                                cv::line(aroundDebug, cv::Point(left_lines[i][0], left_lines[i][1]),
+                                         cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
+                            }
+                            // left_linesからBIRDSEYE_LENGTH * 0.7に到達する地点でのx座標を推定し、BIRDSEYE_LENGTH + RUN_LINEとのずれによって
+                            // 現在のLEFT_CURVE_VEL, LEFT_CURVE_ROTを補正する。
+                            if (temp_detect_line == 0) {
+                                temp_detect_line =(BIRDSEYE_LENGTH - left_lines[i][3]) / (left_lines[i][3] - left_lines[i][1]) * (left_lines[i][2] - left_lines[i][0]) + left_lines[i][2];
+                                std::cout << "temp_detect_line   " <<  temp_detect_line << std::endl;
+                            } else {
+                                double temp = (BIRDSEYE_LENGTH - left_lines[i][3]) / (left_lines[i][3] - left_lines[i][1]) * (left_lines[i][2] - left_lines[i][0]) + left_lines[i][2];
+                                if (abs(runLine - temp) < abs(runLine - temp_detect_line)) {
+                                    temp_detect_line = temp;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (DEBUG) {
+                    cv::line(aroundDebug, cv::Point(temp_detect_line, 0),
+                             cv::Point(temp_detect_line, BIRDSEYE_LENGTH), cv::Scalar(0, 255, 255), 3, 8);
+                }
+                twist.linear.x = RIGHT_CURVE_VEL;
+                if (temp_detect_line == 0) {
+                    twist.angular.z = RIGHT_CURVE_ROT;
+                } else {
+                    twist.angular.z = RIGHT_CURVE_ROT + (BIRDSEYE_LENGTH * (1 + RUN_LINE) - temp_detect_line) / 100;
+                }
+            }
+        } else {
+            twist.linear.x = RIGHT_CURVE_VEL;
+            twist.angular.z = RIGHT_CURVE_ROT;
         }
         limitedTwistPub();
     }
@@ -1411,7 +1451,7 @@ public:
             OBJECT obj = *itr;
 
             // 走行距離分Y座標を修正
-            obj.beforeY = obj.beforeY + mileage;
+            obj.beforeY = obj.beforeY + mileage*3.5;
 
             // オブジェクトが一定位置に見えたら曲がる(止まる)フラグを立てる場合
             if (obj.objType == "crosswalk") {
