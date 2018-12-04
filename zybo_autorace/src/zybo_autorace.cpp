@@ -25,7 +25,7 @@
 
 #define PI 3.141592653589793
 
-#define DEBUG true
+#define DEBUG false
 #define RED_OBJ_SEARCH false
 #define FIGURE_SEARCH false
 
