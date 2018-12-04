@@ -501,7 +501,7 @@ public:
             cv::imshow("road", aroundDebug);
             cv::moveWindow("road", 20, 20);
             cv::imshow("origin", caliblated);
-            cv::moveWindow("origin", 20, 20);
+            cv::moveWindow("origin", 400, 20);
             testSkin(caliblated);
             cv::waitKey(3);
         }
@@ -843,6 +843,56 @@ public:
     void leftTurn() {
         twist.linear.x = LEFT_CURVE_VEL;
         twist.angular.z = LEFT_CURVE_ROT;
+        ros::Time now = ros::Time::now();
+        if (now - phaseStartTime > ros::Duration(LEFT_CURVE_END_TIME + LEFT_CURVE_END_MARGIN_TIME)) {
+            changePhase("search_line");
+        } else if (now - phaseStartTime > ros::Duration(LEFT_CURVE_END_TIME)) {
+            twist.angular.z = LEFT_CURVE_AFTER_ROT;
+        }
+        limitedTwistPub();
+    }
+
+    // 検知しながら左カーブ
+    // TODO 曲がるタイミングが重要！
+    void detectedLeftTurn(aroundImage) {
+        // 左側をハフ変換
+        cv::Mat temp_dst;
+        cv::Canny(aroundImage, temp_dst, 50, 200, 3);
+        std::vector <cv::Vec4i> left_lines;
+        cv::HoughLinesP(temp_dst, left_lines, 1, CV_PI / 180, threshold, minLineLength, maxLineGap);
+        double temp_detect_line = 0.0;
+        int runLine = BIRDSEYE_LENGTH * (1 + RUN_LINE);
+
+
+        // 左車線を検索
+        for (size_t i = 0; i < left_lines.size(); i++) {
+            STRAIGHT left_line = toStraightStruct(left_lines[i]);
+            if (left_line.degree < 0 && left_line.degree > - 60 ) {
+                if(left_line.middle > BIRDSEYE_LENGTH * 0.5 && left_line.middle < BIRDSEYE_LENGTH * 1.5)
+                if (DEBUG) {
+                    cv::line(aroundDebug, cv::Point(left_lines[i][0], left_lines[i][1]),
+                             cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255),
+                             3, 8);
+                }
+                // left_linesからBIRDSEYE_LENGTH * 0.7に到達する地点でのx座標を推定し、BIRDSEYE_LENGTH + RUN_LINEとのずれによって
+                // 現在のLEFT_CURVE_VEL, LEFT_CURVE_ROTを補正する。
+                if (!temp_detect_line) {
+                    temp_detect_line =
+                            (BIRDSEYE_LENGTH * 0.7 - left_lines[i][3]) / (left_lines[i][2] - left_lines[i][0])
+                            * (left_lines[i][2] - left_lines[i][0]) + left_lines[i][2];
+                } else {
+                    double temp = (BIRDSEYE_LENGTH * 0.7 - left_lines[i][3]) / (left_lines[i][2] - left_lines[i][0])
+                                  * (left_lines[i][2] - left_lines[i][0]) + left_lines[i][2];
+                    if (abs(runLine - temp) < abs(runLine - temp_detect_line)){
+                        temp_detect_line = temp;
+                    }
+                }
+            }
+        }
+
+
+        twist.linear.x = LEFT_CURVE_VEL;
+        twist.angular.z = LEFT_CURVE_ROT + (BIRDSEYE_LENGTH * (1 + RUN_LINE) - temp_detect_line) / 100;
         ros::Time now = ros::Time::now();
         if (now - phaseStartTime > ros::Duration(LEFT_CURVE_END_TIME + LEFT_CURVE_END_MARGIN_TIME)) {
             changePhase("search_line");
