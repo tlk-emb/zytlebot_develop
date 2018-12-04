@@ -463,9 +463,9 @@ public:
             // bool nowFindRightLaneRightT = intersectionDetection(around_lines, aroundWhiteBinary);
             // searchRightLaneRightT(nowFindRightLaneRightT);
         } else if (now_phase == "turn_left") {
-            leftTurn();
+            leftTurnDetect(aroundWhiteBinary);
         } else if (now_phase == "turn_right") {
-            curveDetectLane(aroundWhiteBinary);
+            rightTurnDetect(aroundWhiteBinary);
         } else if (now_phase == "find_obs") {
             obstacleAvoidance(road_white_binary, aroundWhiteBinary);
         } else if (now_phase == "intersection_straight") {
@@ -713,6 +713,9 @@ public:
         int next_x = next_tile_x;
         int next_y = next_tile_y;
 
+
+        int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
+
         // road4をスキップするために繰り返す
         while (1) {
 
@@ -857,51 +860,122 @@ public:
 
     // 検知しながら左カーブ
     // TODO 曲がるタイミングが重要！
-    void detectedLeftTurn(cv::Mat aroundImage) {
+    void LeftCurveDetect(cv::Mat aroundImage) {
+        ros::Time now = ros::Time::now();
+        if (now - phaseStartTime > ros::Duration(LEFT_CURVE_END_TIME + LEFT_CURVE_END_MARGIN_TIME)) {
+            changePhase("search_line");
+        } else if (now - phaseStartTime > ros::Duration(LEFT_CURVE_END_TIME)) {
+            if (find_left_line) {
+                changePhase("search_line");
+            } else {
+                twist.angular.z = LEFT_CURVE_AFTER_ROT;
+                // 左側をハフ変換
+                cv::Mat temp_dst;
+                cv::Canny(aroundImage, temp_dst, 50, 200, 3);
+                std::vector <cv::Vec4i> left_lines;
+                cv::HoughLinesP(temp_dst, left_lines, 1, CV_PI / 180, 20, 40, 5);
+                double temp_detect_line = 0.0;
+                int runLine = BIRDSEYE_LENGTH * (1 + RUN_LINE);
+
+
+                // 左車線を検索
+                for (size_t i = 0; i < left_lines.size(); i++) {
+                    STRAIGHT left_line = toStraightStruct(left_lines[i]);
+                    if (left_line.degree < 0 && left_line.degree > -60) {
+                        if (left_line.middle.x > BIRDSEYE_LENGTH * 0.5 && left_line.middle.x < BIRDSEYE_LENGTH * 1.5)
+                            if (DEBUG) {
+                                cv::line(aroundDebug, cv::Point(left_lines[i][0], left_lines[i][1]),
+                                         cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255),
+                                         3, 8);
+                            }
+                        // left_linesからBIRDSEYE_LENGTH * 0.7に到達する地点でのx座標を推定し、BIRDSEYE_LENGTH + RUN_LINEとのずれによって
+                        // 現在のLEFT_CURVE_VEL, LEFT_CURVE_ROTを補正する。
+                        if (temp_detect_line == 0) {
+                            temp_detect_line =
+                                    (BIRDSEYE_LENGTH * 0.7 - left_lines[i][3]) / (left_lines[i][3] - left_lines[i][1])
+                                    * (left_lines[i][2] - left_lines[i][0]) + left_lines[i][2];
+                        } else {
+                            double temp =
+                                    (BIRDSEYE_LENGTH * 0.7 - left_lines[i][3]) / (left_lines[i][3] - left_lines[i][1])
+                                    * (left_lines[i][2] - left_lines[i][0]) + left_lines[i][2];
+                            if (abs(runLine - temp) < abs(runLine - temp_detect_line)) {
+                                temp_detect_line = temp;
+                            }
+                        }
+                    }
+                }
+                if (DEBUG) {
+                    cv::line(aroundDebug, cv::Point(temp_detect_line, 0),
+                             cv::Point(temp_detect_line, BIRDSEYE_LENGTH), cv::Scalar(0, 255, 255), 3, 8);
+                }
+
+                twist.linear.x = LEFT_CURVE_VEL;
+                if (temp_detect_line == 0) {
+                    twist.angular.z = LEFT_CURVE_ROT;
+                } else {
+                    twist.angular.z = LEFT_CURVE_ROT + (BIRDSEYE_LENGTH * (1 + RUN_LINE) - temp_detect_line) / 100;
+                }
+            }
+        } else {
+            twist.linear.x = LEFT_CURVE_VEL;
+            twist.angular.z = LEFT_CURVE_ROT;
+        }
+        limitedTwistPub();
+    }
+
+    void leftTurnDetect(cv::Mat aroundImage) {
         // 左側をハフ変換
         cv::Mat temp_dst;
         cv::Canny(aroundImage, temp_dst, 50, 200, 3);
         std::vector <cv::Vec4i> left_lines;
-        cv::HoughLinesP(temp_dst, left_lines, 1, CV_PI / 180,  20, 40, 5);
+        cv::HoughLinesP(temp_dst, left_lines, 1, CV_PI / 180, 20, 40, 5);
         double temp_detect_line = 0.0;
         int runLine = BIRDSEYE_LENGTH * (1 + RUN_LINE);
 
-
         // 左車線を検索
         for (size_t i = 0; i < left_lines.size(); i++) {
+            cv::line(aroundDebug, cv::Point(left_lines[i][0], left_lines[i][1]),
+                     cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(255, 0, 255),
+                     3, 8);
+
             STRAIGHT left_line = toStraightStruct(left_lines[i]);
-            if (left_line.degree < 0 && left_line.degree > - 60 ) {
-                if(left_line.middle.x > BIRDSEYE_LENGTH * 0.5 && left_line.middle.x < BIRDSEYE_LENGTH * 1.5)
-                if (DEBUG) {
-                    cv::line(aroundDebug, cv::Point(left_lines[i][0], left_lines[i][1]),
-                             cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255),
-                             3, 8);
-                }
-                // left_linesからBIRDSEYE_LENGTH * 0.7に到達する地点でのx座標を推定し、BIRDSEYE_LENGTH + RUN_LINEとのずれによって
-                // 現在のLEFT_CURVE_VEL, LEFT_CURVE_ROTを補正する。
-                if (!temp_detect_line) {
-                    temp_detect_line =
-                            (BIRDSEYE_LENGTH * 0.7 - left_lines[i][3]) / (left_lines[i][2] - left_lines[i][0])
-                            * (left_lines[i][2] - left_lines[i][0]) + left_lines[i][2];
-                } else {
-                    double temp = (BIRDSEYE_LENGTH * 0.7 - left_lines[i][3]) / (left_lines[i][2] - left_lines[i][0])
-                                  * (left_lines[i][2] - left_lines[i][0]) + left_lines[i][2];
-                    if (abs(runLine - temp) < abs(runLine - temp_detect_line)){
-                        temp_detect_line = temp;
+            if (left_line.degree < 0 && left_line.degree > -60) {
+                if (left_line.middle.x > BIRDSEYE_LENGTH * 0.5 && left_line.middle.x < BIRDSEYE_LENGTH * 1.5) {
+                    if (DEBUG) {
+                        cv::line(aroundDebug, cv::Point(left_lines[i][0], left_lines[i][1]),
+                                 cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255),
+                                 3, 8);
+                    }
+                    // left_linesからBIRDSEYE_LENGTH * 0.7に到達する地点でのx座標を推定し、BIRDSEYE_LENGTH + RUN_LINEとのずれによって
+                    // 現在のLEFT_CURVE_VEL, LEFT_CURVE_ROTを補正する。
+                    if (temp_detect_line == 0) {
+                        temp_detect_line =
+                                (BIRDSEYE_LENGTH * 0.7 - left_lines[i][3]) / (left_lines[i][3] - left_lines[i][1])
+                                * (left_lines[i][2] - left_lines[i][0]) + left_lines[i][2];
+                    } else {
+                        double temp =
+                                (BIRDSEYE_LENGTH * 0.7 - left_lines[i][3]) / (left_lines[i][3] - left_lines[i][1])
+                                * (left_lines[i][2] - left_lines[i][0]) + left_lines[i][2];
+                        if (abs(runLine - temp) < abs(runLine - temp_detect_line)) {
+                            temp_detect_line = temp;
+                        }
                     }
                 }
             }
         }
 
+        if (DEBUG) {
+            cv::line(aroundDebug, cv::Point(temp_detect_line, 0),
+                     cv::Point(temp_detect_line, BIRDSEYE_LENGTH), cv::Scalar(0, 255, 255), 3, 8);
+        }
 
         twist.linear.x = LEFT_CURVE_VEL;
         twist.angular.z = LEFT_CURVE_ROT + (BIRDSEYE_LENGTH * (1 + RUN_LINE) - temp_detect_line) / 100;
-        ros::Time now = ros::Time::now();
-        if (now - phaseStartTime > ros::Duration(LEFT_CURVE_END_TIME + LEFT_CURVE_END_MARGIN_TIME)) {
-            changePhase("search_line");
-        } else if (now - phaseStartTime > ros::Duration(LEFT_CURVE_END_TIME)) {
-            twist.angular.z = LEFT_CURVE_AFTER_ROT;
-        }
+
+        system("clear");
+        cout << "default : " << LEFT_CURVE_VEL << endl;
+        cout << "this : " << (BIRDSEYE_LENGTH * (1 + RUN_LINE) - temp_detect_line) / 100 << endl;
+
         limitedTwistPub();
     }
 
@@ -933,7 +1007,7 @@ public:
      * 交差点の右カーブの補正
      * カーブ中に目的のレーンの左車線を検索し、検知した左車線の延長がRUN_LINEに来るようにする
      */
-    void curveDetectLane(cv::Mat image){
+    void rightTurnDetect(cv::Mat image){
         ros::Time now = ros::Time::now();
         if (now - phaseStartTime > ros::Duration(RIGHT_CURVE_END_TIME + RIGHT_CURVE_END_MARGIN_TIME)) {
             changePhase("search_line");
@@ -962,10 +1036,10 @@ public:
                             // left_linesからBIRDSEYE_LENGTH * 0.7に到達する地点でのx座標を推定し、BIRDSEYE_LENGTH + RUN_LINEとのずれによって
                             // 現在のLEFT_CURVE_VEL, LEFT_CURVE_ROTを補正する。
                             if (temp_detect_line == 0) {
-                                temp_detect_line = left_lines[i][0] - (BIRDSEYE_LENGTH - left_lines[i][1]) * (left_lines[i][2] - left_lines[i][0]) / (left_lines[i][1] - left_lines[i][3]);
+                                temp_detect_line = left_lines[i][0] - (BIRDSEYE_LENGTH * 0.7 - left_lines[i][1]) * (left_lines[i][2] - left_lines[i][0]) / (left_lines[i][1] - left_lines[i][3]);
                                 std::cout << "temp_detect_line   " <<  temp_detect_line << std::endl;
                             } else {
-                                double temp = left_lines[i][0] - (BIRDSEYE_LENGTH - left_lines[i][1]) * (left_lines[i][2] - left_lines[i][0]) / (left_lines[i][1] - left_lines[i][3]);
+                                double temp = left_lines[i][0] - (BIRDSEYE_LENGTH * 0.7 - left_lines[i][1]) * (left_lines[i][2] - left_lines[i][0]) / (left_lines[i][1] - left_lines[i][3]);
                                 if (abs(runLine - temp) < abs(runLine - temp_detect_line)) {
                                     temp_detect_line = temp;
                                 }
