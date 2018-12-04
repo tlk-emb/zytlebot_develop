@@ -743,7 +743,10 @@ public:
                 if (!intersectionAfterCrosswalk) { // intersectionの直後の交差点は無視する
                     break;
                 }
-            } else if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
+            } else if (nextTile == 3 || nextTile == 8) {
+                break;
+            } else if ( nextTile == 7 && nextDirection  != 0) {
+                // T字路直進は無視する
                 break;
             }
             // カーブの後はcurveAfterCrosswalkがtrueになっているので、直後のnextTileが横断歩道の時のみtrueのまま
