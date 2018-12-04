@@ -19,11 +19,11 @@ autorace:
   run_line: 0.22
   run_line_margin: 0.1
   intersection_prediction_time_ratio: 50.0
-  intersection_prediction_under_margin: 40.0
+  intersection_prediction_under_margin: 30.0
   crosswalk_under_margin: 40.0
   intersection_curve_start_flag_ratio: 0.60
-  right_curve_start_lost_line_time: 1.0
-  left_curve_start_lost_line_time: 3.2
+  right_curve_start_lost_line_time: 1.5
+  left_curve_start_lost_line_time: 4.2
   right_curve_end_margin_time: 2.0
   right_curve_end_time: 4.6
   right_curve_vel: 0.15
