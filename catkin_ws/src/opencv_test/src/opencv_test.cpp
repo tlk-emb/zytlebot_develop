@@ -408,6 +408,7 @@ public:
                 changePhase("search_line");
             } else {
                 double degree_average = detectLane(left_roi);
+                curveDetectLane(aroundWhiteBinary);
                 detected_angle = degree_average;
                 // レーン検出してdetected_lineを更新、平均角度を求める
                 findRedObs(birds_eye);
@@ -490,6 +491,29 @@ public:
         line_lost_time = ros::Time::now();
     }
 
+    /*
+     * 交差点の右カーブの補正
+     * カーブ中に目的のレーンの左車線を検索し、検知した左車線の延長がRUN_LINEに来るようにする
+     */
+    void curveDetectLane(cv::Mat image){
+        // ハフ変換
+        cv::Mat temp_dst;
+        cv::Canny(image, temp_dst, 50, 200, 3);
+        std::vector <cv::Vec4i> left_lines;
+        cv::HoughLinesP(temp_dst, left_lines, 1, CV_PI / 180, 20, 40, 5);
+
+        // 角度が0~60の直線を検出して表示
+        for (size_t i = 0; i < left_lines.size(); i++) {
+            STRAIGHT left_line = toStraightStruct(left_lines[i]);
+            if (left_line.degree < 60 && left_line.degree > 0) {
+                if (left_line.middle < BIRDSEYE_LENGTH * 1.5 && left_line.middle > BIRDSEYE_LENGTH * 0.5) {
+                    cv::line(aroundDebug, cv::Point(left_lines[i][0], left_lines[i][1]),
+                             cv::Point(left_lines[i][2], left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
+                }
+            }
+        }
+    }
+
     // 左車線について
     // 角度平均をとり、全体の角度が垂直になるようにする
     // 最も左車線を検出し、いい感じになるよう調整する
@@ -519,8 +543,8 @@ public:
                     mostDistantY = left_lines[i][3];
                 }
 
-                cv::line(aroundDebug, cv::Point(left_lines[i][0] + BIRDSEYE_LENGTH * 0.5, left_lines[i][1]),
-                         cv::Point(left_lines[i][2] + BIRDSEYE_LENGTH * 0.5, left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
+                //cv::line(aroundDebug, cv::Point(left_lines[i][0] + BIRDSEYE_LENGTH * 0.5, left_lines[i][1]),
+                //         cv::Point(left_lines[i][2] + BIRDSEYE_LENGTH * 0.5, left_lines[i][3]), cv::Scalar(0, 0, 255), 3, 8);
 
                 degree_average_sum += left_line.degree;
                 if (most_left_middle_x > std::abs(left_line.middle.x - BIRDSEYE_LENGTH * 0.5)) {
@@ -1139,7 +1163,7 @@ public:
 
         //中点
         result.middle = cv::Point((line[0] + line[2]) / 2, (line[1] + line[3]) / 2);
-        // 距離
+        // 長さ
         result.length = (line[0] - line[2]) * (line[0] - line[2]) + (line[1] - line[3]) * (line[1] - line[3]);
         // 角度
         double radian = atan2(line[1] - line[3], line[0] - line[2]);
