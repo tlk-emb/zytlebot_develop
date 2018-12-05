@@ -97,7 +97,7 @@ public:
 
         // カラー画像をサブスクライブ
         // TODO subscribe先はtopicに応じて変更
-        image_sub_ = it_.subscribe("/camera/rgb/image_raw", 1,
+        image_sub_ = it_.subscribe("/image_raw", 1,
                                    &ImageConverter::imageCb, this);
 
         red_flag_ = nh_.advertise<std_msgs::String>("/red_flag", 1);
@@ -291,7 +291,7 @@ public:
         *time1 += (long double)std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count()/1000;
         *time2 += (long double)std::chrono::duration_cast<std::chrono::microseconds>(t3-t2).count()/1000;
         if(!hwmode || checkmode){
-            memset(sw_feature, 0, sizeof(double) * FEATURE_SIZE * 4);
+            memset(sw_feature, 0, sizeof(unsigned short) * FEATURE_SIZE * 4);
             for(int i = 0; i < num; i++){
                 ravel(spatial_hls[i], i * FEATURE_SIZE + sw_feature);
                 ravel(spatial_rgb[i], i * FEATURE_SIZE + sw_feature + 192);
@@ -404,6 +404,8 @@ public:
 
 int main(int argc, char** argv)
 {
+    check_window();
+
     ros::init(argc, argv, "red_realtime");
     ImageConverter ic;
     ros::spin();
