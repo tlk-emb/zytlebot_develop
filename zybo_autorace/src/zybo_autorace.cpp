@@ -21,6 +21,7 @@
 #include "std_msgs/MultiArrayLayout.h"
 #include "std_msgs/MultiArrayDimension.h"
 #include "std_msgs/UInt8MultiArray.h"
+#include "std_msgs/String.h"
 
 
 #define PI 3.141592653589793
@@ -98,7 +99,7 @@ now_phaseについて
 class ImageConverter {
     ros::NodeHandle nh_;
     ros::Subscriber image_sub_;
-    ros::Subscriber red_flag_;
+    ros::Subscriber red_pub_;
 
     bool red_flag;
 
@@ -323,7 +324,7 @@ public:
         image_sub_ = nh_.subscribe("/image_array", 1,
                                    &ImageConverter::imageCb, this);
 
-        red_flag_ = nh_.subscribe("/red_flag", 1,
+        red_pub_ = nh_.subscribe("/red_flag", 1,
                                   &ImageConverter::redFlagUpdate, this);
         /*
         image_sub_ = it_.subscribe("/camera/rgb/image_raw", 1,
@@ -357,8 +358,9 @@ public:
         cv::destroyAllWindows();
     }
 
-    void redFlagUpdate(const bool &msg) {
+    void redFlagUpdate(const std_msgs::String &msg) {
         red_flag = &msg;
+        cout << red_flag << endl;
     }
 
 
@@ -870,7 +872,7 @@ public:
 
     // 検知しながら左カーブ
     // TODO 曲がるタイミングが重要！
-    void LeftTurnDetect(cv::Mat aroundImage) {
+    void leftTurnDetect(cv::Mat aroundImage) {
         ros::Time now = ros::Time::now();
         if (now - phaseStartTime > ros::Duration(LEFT_CURVE_END_TIME + LEFT_CURVE_END_MARGIN_TIME)) {
             changePhase("search_line");
