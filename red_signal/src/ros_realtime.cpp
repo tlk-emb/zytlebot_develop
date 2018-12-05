@@ -19,6 +19,10 @@
 #include "forest.h"
 #include "window_candidate.h"
 #include "hw.h"
+#include "std_msgs/String.h"
+
+#include <sstream>
+
 using namespace std;
 using namespace cv;
 
@@ -95,7 +99,8 @@ public:
         // TODO subscribe先はtopicに応じて変更
         image_sub_ = it_.subscribe("/camera/rgb/image_raw", 1,
                                    &ImageConverter::imageCb, this);
-        red_flag_ = it_.advertise<bool>("/red_flag", 1);
+
+        red_flag_ = nh_.advertise<std_msgs::String>("/red_flag", 1);
 
         if(hwmode) hw_setup();
         cout << "hw setup completed" << endl;
@@ -189,7 +194,18 @@ public:
         cv_ptr->image = frame_copy;
         image_pub_.publish(cv_ptr->toImageMsg());
 
-        red_flag.publish(find_flag);
+
+        std_msgs::String send_msg;
+
+        // flagの送信処理
+        std::stringstream ss;
+        if (find_flag) {
+            ss << "true";
+        } else {
+            ss << "false";
+        }
+        send_msg.data = ss.str();
+        red_flag_.publish(send_msg);
     }
 
 
