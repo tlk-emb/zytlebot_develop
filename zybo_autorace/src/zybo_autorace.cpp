@@ -1546,7 +1546,14 @@ public:
         // cv::bitwise_and(redRoi, redRoi, red_image, red_mask1 + red_mask2);
 
         int fractionNum = cv::countNonZero(red_mask1 + red_mask2);
+        cout << "fractionNum :" << fractionNum << endl;
         if (fractionNum > 500) {
+            int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
+            int tileType = map_data[next_tile_y][next_tile_x][0];
+
+            if (tileType == 7 && nextDirection = 0) {
+                setNextTile(); // T字路直進の場合スキップ
+            }
             changePhase("find_obs");
         }
     }
