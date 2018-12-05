@@ -101,6 +101,8 @@ class ImageConverter {
     ros::Subscriber image_sub_;
     ros::Subscriber red_pub_;
 
+    ros::Publisher signal_search_;
+
     bool red_flag;
 
     // 定数宣言
@@ -333,6 +335,7 @@ public:
 
         //  処理した挙動をパブリッシュ
         twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
+        signal_search_ = nh_.advertise<std_msgs::String>("/signal_search", 1);
 
         //image_pub_ = it_.advertise("/image_topic", 1);
 
@@ -733,6 +736,8 @@ public:
         int next_x = next_tile_x;
         int next_y = next_tile_y;
 
+        std_msgs::String send_do_signal_search;
+
         // road4をスキップするために繰り返す
         while (1) {
 
@@ -791,9 +796,12 @@ public:
         // タイルと入射角の差　どの方角からタイルに侵入するかを判別
         int differenceDirection = (tileRot - now_dir + 4) % 4;
 
+        send_do_signal_search.data = "false";
+
         if (tileType == 2 || tileType == 5 || tileType == 6) {
             // 横断歩道
             searchType = "crosswalk";
+            send_do_signal_search.data = "true";
         } else if (tileType == 7) { // T字路
             if(differenceDirection == 3) {
                 // T字路に左から入る
@@ -810,6 +818,8 @@ public:
         } else {
             searchType = "";
         }
+
+        signal_search_.publish(send_do_signal_search);
     }
     /////////実際に動かす関数//////////////////
 
