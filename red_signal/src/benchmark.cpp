@@ -31,7 +31,7 @@ float proba_thresh = 0.65;
 #define FEATURE_SIZE 64*3*2+12*3*2+72*4
 
 void check_window(){
-    for(int i = 0; i < 126; i++){
+    for(int i = 0; i < window_num; i++){
         int sy = w[i][0][0];
         int sx = w[i][1][0];
         int ey = w[i][0][1];
@@ -44,7 +44,7 @@ void check_window(){
         ey_max = max(ey_max, ey);
     }
 
-    for(int i = 0; i < 126; i++){
+    for(int i = 0; i < window_num; i++){
     //(old_x - sx_min) * ratio
         int sy = w[i][0][0];
         int sx = w[i][1][0];
@@ -156,12 +156,13 @@ float test_one_window(Mat rgb, Mat hls, Mat gray, double* time1, double* time2){
     }
 	if(checkmode) hwresultcheck(sw_feature, hw_feature, 0, FEATURE_SIZE);
     //Classify by Random Forest
-    clf_res res(0, 0);
-    if(hwmode) res = randomforest_classifier(hw_feature);
-    else       res = randomforest_classifier(sw_feature);
-    float red_proba = (float)res.red / (res.not_red + res.red);
+    // clf_res res(0, 0);
+    double proba;
+    if(hwmode) proba = randomforest_classifier(hw_feature);
+    else       proba = randomforest_classifier(sw_feature);
+    // float red_proba = (float)res.red / (res.not_red + res.red);
     // cout << red_proba << endl;
-    return red_proba;
+    return proba;
 }
 void test_one_frame(Mat frame){
     std::chrono::system_clock::time_point  t1, t2, t3, t4, t5, t6, t7;

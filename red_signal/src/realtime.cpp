@@ -15,7 +15,7 @@ using namespace std;
 using namespace cv;
 
 #define FEATURE_SIZE 64*3*2+12*3*2+72*4
-#define hwmode false
+#define hwmode true
 
 float test_one_image(Mat img){
   std::chrono::system_clock::time_point  t1, t2, t3, t4, t5, t6, t7;
@@ -23,7 +23,7 @@ float test_one_image(Mat img){
   Mat resized_img, gray;
   cv::resize(img, resized_img, cv::Size(64 ,32), INTER_LINEAR);
   cv::Mat resized_hls;
-  cv::cvtColor(resized_img, resized_hls, CV_RGB2HLS);
+  cv::cvtColor(resized_img, resized_hls, CV_BGR2HSV);
 
   cv::Size spatial_size(8, 8);
   Mat spatial_rgb, spatial_hls;
@@ -46,26 +46,25 @@ float test_one_image(Mat img){
     color_hist_hw(feature + 192 * 2 + 36);
     //calculate HOG feature
     t2 = std::chrono::system_clock::now();
-    cv::cvtColor(resized_img, gray, CV_RGB2GRAY);
+    cv::cvtColor(resized_img, gray, CV_BGR2GRAY);
     for(int i = 0; i < 32; i++)  memcpy(hog_imageBuffer + 64 * i, gray.data + gray.step * i, gray.cols * sizeof(unsigned char));
     calc_hog_hw(feature + 192 * 2 + 36 * 2);
     t3 = std::chrono::system_clock::now();
   }else{
     hist(resized_hls, feature + 192 * 2);
     hist(resized_img, feature + 192 * 2 + 36);
-    cv::cvtColor(resized_img, gray, CV_RGB2GRAY);
+    cv::cvtColor(resized_img, gray, CV_BGR2GRAY);
     lite_hog(gray, feature + 192 * 2 + 36 * 2);
   }
 
-  clf_res res = randomforest_classifier(feature);
-  float red_proba = (float)res.red / (res.not_red + res.red);
-  if(red_proba >= 0.70) cout << red_proba << endl;
-  return red_proba;
+  float proba = randomforest_classifier(feature);
+  if(proba >= 0.65) cout << proba << endl;
+  return proba;
 }
 
 int main(int argc, const char* argv[])
 {
-  cv::VideoCapture cap(0);
+  cv::VideoCapture cap(1);
   if(!cap.isOpened()){
     cout << "failed" << endl;
     return -1;
@@ -95,7 +94,7 @@ int main(int argc, const char* argv[])
           else d[y][x] = d[y-1][x] + tmpsum;
         }
       }
-      for(int i = 0; i < 126; i++){
+      for(int i = 0; i < window_num; i++){
         cv::Mat out;
         int sy = w[i][0][0];
         int sx = w[i][1][0];
@@ -103,16 +102,16 @@ int main(int argc, const char* argv[])
         int ex = w[i][1][1];
         //remove arienai
         int satisfy_num = d[ey-1][ex-1] - d[ey-1][sx-1] - d[sy-1][ex-1] + d[sy-1][sx-1];
-        if(satisfy_num < (ey - sy) * (ex - sx) * 2 / 100) continue;
+        // if(satisfy_num < (ey - sy) * (ex - sx) * 2 / 100) continue;
         // cout << "satisfy num" << satisfy_num << endl;
 
         cv::Mat cropped(frame, cv::Rect(sx, sy, ex - sx, ey - sy));
         // cv::imwrite("crop.png", cropped);
         float proba = test_one_image(cropped);
 
-        if(proba >= 0.70) rectangle(frame_copy, Point(sx, sy), Point(ex, ey), Scalar(0,0,200), 3); //x,y //Scaler = B,G,R
+        if(proba >= 0.65) rectangle(frame_copy, Point(sx, sy), Point(ex, ey), Scalar(0,0,200), 3); //x,y //Scaler = B,G,R
       }
-      cv::imshow("window", frame_copy);
+      //cv::imshow("window", frame_copy);
 
       int key = cv::waitKey(1);
       if(key == 113)//qボタンが押されたとき
@@ -125,7 +124,7 @@ int main(int argc, const char* argv[])
       cout << "elapsed:" << elapsed << "[milisec]" << endl;
       cout << "fps:" << 1000.0/elapsed << "[fps]" << endl;
   }
-  cv::destroyAllWindows();
+  //cv::destroyAllWindows();
   if(hwmode) hw_release();
   return 0;
 }
