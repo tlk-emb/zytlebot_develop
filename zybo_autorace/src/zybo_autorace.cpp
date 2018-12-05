@@ -359,8 +359,7 @@ public:
     }
 
     void redFlagUpdate(const std_msgs::String &msg) {
-        String str = msg->data.c_str();
-        if (str == "true") {
+        if (msg.data == "true") {
             red_flag = true;
         } else {
             red_flag = false;
