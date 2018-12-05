@@ -860,7 +860,7 @@ public:
 
     // 検知しながら左カーブ
     // TODO 曲がるタイミングが重要！
-    void LeftCurveDetect(cv::Mat aroundImage) {
+    void LeftTurnDetect(cv::Mat aroundImage) {
         ros::Time now = ros::Time::now();
         if (now - phaseStartTime > ros::Duration(LEFT_CURVE_END_TIME + LEFT_CURVE_END_MARGIN_TIME)) {
             changePhase("search_line");
@@ -923,7 +923,7 @@ public:
         limitedTwistPub();
     }
 
-    void leftTurnDetect(cv::Mat aroundImage) {
+    void testTurnDetect(cv::Mat aroundImage) {
         // 左側をハフ変換
         cv::Mat temp_dst;
         cv::Canny(aroundImage, temp_dst, 50, 200, 3);
