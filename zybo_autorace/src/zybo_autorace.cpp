@@ -359,7 +359,14 @@ public:
     }
 
     void redFlagUpdate(const std_msgs::String &msg) {
-        red_flag = &msg;
+        String str = msg->data.c_str();
+        if (str == "true") {
+            red_flag = true;
+        } else {
+            red_flag = false;
+        }
+
+        cout << str << endl;
         cout << red_flag << endl;
     }
 
