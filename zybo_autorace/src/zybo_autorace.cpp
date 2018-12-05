@@ -98,6 +98,9 @@ now_phaseについて
 class ImageConverter {
     ros::NodeHandle nh_;
     ros::Subscriber image_sub_;
+    ros::Subscriber red_flag_;
+
+    bool red_flag;
 
     // 定数宣言
     int BIRDSEYE_LENGTH, CAMERA_WIDTH, CAMERA_HEIGHT;
@@ -208,6 +211,8 @@ public:
 
         nh_.getParam("/zybo_autorace/autorace", params);
 
+        red_flag = false;
+
         // 定数をセット
 
         Hue_l = (int)params["hue_l"];
@@ -317,6 +322,9 @@ public:
         // if_zybo
         image_sub_ = nh_.subscribe("/image_array", 1,
                                    &ImageConverter::imageCb, this);
+
+        red_flag_ = nh_.subscribe("/red_flag", 1,
+                                  &ImageConverter::redFlagUpdate, this);
         /*
         image_sub_ = it_.subscribe("/camera/rgb/image_raw", 1,
                                    &ImageConverter::imageCb, this);
@@ -347,6 +355,10 @@ public:
         limitedTwistPub();
         // 全てのウインドウは破壊
         cv::destroyAllWindows();
+    }
+
+    void redFlagUpdate(const bool &msg) {
+        red_flag = &msg;
     }
 
 
@@ -795,14 +807,18 @@ public:
 
     // 5秒ストップ
     void crosswalkRedStop() {
-        ros::Time now = ros::Time::now();
-        twist.linear.x = 0;
-        twist.angular.z = 0;
+        if (red_flag) {
+            ros::Time now = ros::Time::now();
+            twist.linear.x = 0;
+            twist.angular.z = 0;
 
-        limitedTwistPub();
-        if (now - phaseStartTime >  ros::Duration(5.0)) {
+            limitedTwistPub();
+            if (now - phaseStartTime > ros::Duration(10.0)) {
+                changePhase("straight");
+                setNextTile();
+            }
+        } else {
             changePhase("straight");
-            setNextTile();
         }
     }
 

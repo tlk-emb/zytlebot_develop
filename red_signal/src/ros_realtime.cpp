@@ -80,6 +80,11 @@ class ImageConverter
     image_transport::Subscriber image_sub_;
     image_transport::Publisher image_pub_;
 
+    ros::Publisher red_flag_;
+
+    bool find_flag;
+    int find_count;
+
 public:
     // コンストラクタ
     ImageConverter()
@@ -90,11 +95,13 @@ public:
         // TODO subscribe先はtopicに応じて変更
         image_sub_ = it_.subscribe("/camera/rgb/image_raw", 1,
                                    &ImageConverter::imageCb, this);
-        image_pub_ = it_.advertise("/image_trafficlight", 1);
+        red_flag_ = it_.advertise<bool>("/red_flag", 1);
 
         if(hwmode) hw_setup();
         cout << "hw setup completed" << endl;
 
+        find_flag = false;
+        find_count = 0;
     }
 
     // デストラクタ
@@ -132,6 +139,30 @@ public:
 
         //process the current frame
         auto rst = test_one_frame(baseImage);
+
+        bool now_find = rst.size() > 0;
+
+        if (now_find) { // 見つかった場合
+            if (find_count >= 0) { // find_countが0以上の場合
+                find_count++;
+            } else {
+                find_count = 1; // find_countが負の値の場合
+            }
+        } else { //　見つからなかった場合
+            if (find_count <= 0) {
+                find_count--; // find_countが負の場合、-1
+            } else {
+                find_count = -1; // find_countが正の値の場合
+            }
+        }
+
+        // 3回連続で見つけたり見失ったらフラグを変更
+        if (find_count >= 3) {
+            find_flag = true;
+        } else if (find_count <= -3) {
+            find_flag = false;
+        }
+
         //draw rectangle on detecting area
         for(int j = 0; j < rst.size(); j++){
             vector<int> coord = rst[j].first;
@@ -145,7 +176,7 @@ public:
             rectangle(frame_copy, Point(sx, sy), Point(ex, ey), Scalar(0,0,200), 2); //x,y //Scaler = B,G,R
             cv::putText(frame_copy, to_string(proba), cv::Point(sx+5,sy+5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255,0,0), 1, CV_AA);
         }
-        cv::imshow("result", frame_copy);
+        //cv::imshow("result", frame_copy);
         t2 = std::chrono::system_clock::now();
         //show fps
         double elapsed = (double)std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count();
@@ -157,6 +188,8 @@ public:
         // publish
         cv_ptr->image = frame_copy;
         image_pub_.publish(cv_ptr->toImageMsg());
+
+        red_flag.publish(find_flag);
     }
 
 
