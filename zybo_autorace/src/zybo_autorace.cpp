@@ -1417,7 +1417,8 @@ public:
      * TODO 人形を判別した長方形範囲rectの左辺rect.xが推定路線より右かつ、底辺rect.y+rect.heightが一定値以上なら止まるようにフラグを立てる
      * ただし、次が横断歩道かつ横断歩道フラグがonかつ、青信号が検知されていない時は、左辺rect.xがdetected_xより左でも、底辺rect.y+rect.heightが一定値以下なら止まる
     */
-    void searchFigure(){
+    void judgeFigure(cv::Rect figureRect, double maxArea){
+        //if (figureRect.x > detected_line_x && figureRect.y + figureRect.height < );
     }
 
     static void refineSegments(const Mat& img, Mat& mask, Mat& dst)
