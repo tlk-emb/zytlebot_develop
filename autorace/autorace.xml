@@ -1,0 +1,6 @@
+<library path="lib/libnodelet_autorace">
+    <class
+            name="autorace/nodelet_autorace"
+            type="autorace::NodeletAutorace"
+            base_class_type="nodelet::Nodelet"/>
+</library>
