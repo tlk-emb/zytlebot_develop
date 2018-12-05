@@ -47,34 +47,33 @@ unsigned short sw_feature[FEATURE_SIZE*4] = {0};
 unsigned short hw_feature[FEATURE_SIZE*4] = {0};
 
 
-void check_window() {
-    for (int i = 0; i < window_num; i++) {
+void check_window(){
+    for(int i = 0; i < window_num; i++){
         int sy = w[i][0][0];
         int sx = w[i][1][0];
         int ey = w[i][0][1];
         int ex = w[i][1][1];
         // cv::Mat cropped(frame, cv::Rect(sx, sy, ex - sx, ey - sy));
-        widthkind.insert(ex - sx);
+        widthkind.insert(ex-sx);
         sx_min = min(sx_min, sx);
         sy_min = min(sy_min, sy);
         ex_max = max(ex_max, ex);
         ey_max = max(ey_max, ey);
+    }
 
+    for(int i = 0; i < window_num; i++){
+        //(old_x - sx_min) * ratio
+        int sy = w[i][0][0];
+        int sx = w[i][1][0];
+        int ey = w[i][0][1];
+        int ex = w[i][1][1];
 
-        for (int i = 0; i < window_num; i++) {
-            //(old_x - sx_min) * ratio
-            int sy = w[i][0][0];
-            int sx = w[i][1][0];
-            int ey = w[i][0][1];
-            int ex = w[i][1][1];
-
-            int original_width = ex - sx;
-            int ssy = (int) ((float) (sy - sy_min) * (float) WINDOW_WIDTH / original_width);
-            int ssx = (int) ((float) (sx - sx_min) * (float) WINDOW_WIDTH / original_width);
-            mp[original_width].push_back(make_pair(ssx, ssy));
-            //store original coordinate
-            original_mp[original_width].push_back(make_pair(sx, sy));
-        }
+        int original_width = ex - sx;
+        int ssy = (int)((float) (sy - sy_min) * (float)WINDOW_WIDTH/original_width);
+        int ssx = (int)((float) (sx - sx_min) * (float)WINDOW_WIDTH/original_width);
+        mp[original_width].push_back(make_pair(ssx, ssy));
+        //store original coordinate
+        original_mp[original_width].push_back(make_pair(sx, sy));
     }
 }
 
@@ -276,14 +275,14 @@ vector<pair<vector<int>, float>> test_one_frame(Mat frame){
 
 int main(int argc, char** argv)
 {
+    check_window();
+
     ros::init(argc, argv, "red_signal");
     ros::NodeHandle n;
-    red_flag_ = nh_.advertise<std_msgs::String>("/red_flag", 1);
+    ros::Publisher red_flag_ = n.advertise<std_msgs::String>("/red_flag", 1);
 
     bool find_flag = false;
     int find_count = 0;
-
-    check_window();
 
     cout << "hw_setup" << endl;
     if(hwmode) hw_setup();
@@ -315,13 +314,14 @@ int main(int argc, char** argv)
             rectangle(frame_copy, Point(sx, sy), Point(ex, ey), Scalar(0,0,200), 2); //x,y //Scaler = B,G,R
             cv::putText(frame_copy, to_string(proba), cv::Point(sx+5,sy+5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255,0,0), 1, CV_AA);
         }
-        cv::imshow("result", frame_copy);
+        // cv::imshow("result", frame_copy);
         t2 = std::chrono::system_clock::now();
         //show fps
         double elapsed = (double)std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count();
         cout << "elapsed:" << elapsed << "[milisec]" << endl;
         cout << "fps:" << 1000.0/elapsed << "[fps]" << endl;
 
+        bool now_find = rst.size() > 0;
 
         if (now_find) { // 見つかった場合
             if (find_count >= 0) { // find_countが0以上の場合

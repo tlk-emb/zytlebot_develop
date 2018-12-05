@@ -24,5 +24,5 @@ include_directories(
 )
 
 
-add_executable(realtime src/ros_realtime.cpp src/xcalc_hog.c src/xcalc_hog_linux.c  src/xcalc_hog_sinit.c src/linuxmisc.cpp src/linuxmmap.cpp)
-target_link_libraries(realtime ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+add_executable(signal_camera src/ros_realtime.cpp src/xcalc_hog.c src/xcalc_hog_linux.c  src/xcalc_hog_sinit.c src/linuxmisc.cpp src/linuxmmap.cpp)
+target_link_libraries(signal_camera ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
