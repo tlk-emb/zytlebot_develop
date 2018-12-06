@@ -170,6 +170,21 @@ namespace autorace {
                 }
             }
 
+            //5.5 QBUF Request
+            {
+                for(int i = 0; i < reqbuf.count; i++) {
+                    struct v4l2_buffer buf;
+                    memset(&(buf), 0, sizeof(buf));
+                    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+                    buf.memory = V4L2_MEMORY_MMAP;
+                    buf.index = i;
+                    if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
+                        std::cout << "Fail to VIDIOC_QBUF" << std::endl;
+                        return;
+                    }
+                }
+            }
+
             // 6. Start Streaming
             {
                 struct 	v4l2_buffer buf;
@@ -204,11 +219,7 @@ namespace autorace {
                             std::cout << "while loop" << std::endl;
                             // 7. Capture Image
                             {
-                                // Connect buffer to queue for next capture.
-                                if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
-                                    std::cout << "VIDIOC_QBUF" << std::endl;
-                                }
-
+                                std::cout << fd << std::endl;
                                 fd_set fds;
                                 FD_ZERO(&fds);
                                 FD_SET(fd, &fds);
@@ -224,6 +235,11 @@ namespace autorace {
                                 if (-1 == xioctl(fd, VIDIOC_DQBUF, &buf)) {
                                     std::cout << "Retrieving Frame" << std::endl;
                                     return;
+                                }
+
+                                // Connect buffer to queue for next capture.
+                                if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
+                                    std::cout << "VIDIOC_QBUF" << std::endl;
                                 }
 
                             }
