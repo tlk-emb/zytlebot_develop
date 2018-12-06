@@ -262,7 +262,7 @@ namespace autorace{
 
             setParams(nh_);
 
-            image_sub_ = nh_.subscribe("/image_array", 1,
+            image_sub_ = nh_.subscribe("/pcam/image_array", 1,
                                        &NodeletAutorace::imageCb, this);
 
             red_pub_ = nh_.subscribe("/red_flag", 1,

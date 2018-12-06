@@ -59,7 +59,20 @@ namespace autorace {
     class NodeletUsbcam : public nodelet::Nodelet {
 
     private:
-        std::thread working_thread_;
+        ros::NodeHandle n;
+        int fd;
+        struct v4l2_capability caps;
+        int got_buffer_num;
+
+        std::chrono::system_clock::time_point  t1, t2, t3, t4, t5, t6, t7;
+
+        std_msgs::UInt8MultiArrayPtr camdata;
+        struct 	v4l2_buffer buf;
+        struct v4l2_plane planes[FMT_NUM_PLANES];
+
+        ros::Timer image_pub_;
+
+        ros::Publisher pub;
 
     public:
         // コンストラクタ
@@ -71,10 +84,9 @@ namespace autorace {
 
         void onInit() {
 
-            ros::NodeHandle n;
-            ros::Publisher pub = n.advertise<std_msgs::UInt8MultiArray>("image_array",  640 * 480 * 2);
+            n = getNodeHandle();
+            ros::Publisher pub = n.advertise<std_msgs::UInt8MultiArray>("/usbcam/image_array",  640 * 480 * 2);
 
-            int fd;
             fd = open("/dev/video1", O_RDWR, 0);
             if (fd == -1)
             {
@@ -83,7 +95,6 @@ namespace autorace {
             }
 
             // 2. Querying video capabilities.
-            struct v4l2_capability caps;
             memset(&caps, 0, sizeof(caps));
             if (-1 == xioctl(fd, VIDIOC_QUERYCAP, &caps))
             {
@@ -113,7 +124,6 @@ namespace autorace {
                 }
             }
 
-            int got_buffer_num;
             // 4. Request Buffer
             {
                 struct v4l2_requestbuffers req;
@@ -179,74 +189,69 @@ namespace autorace {
                 }
             }
 
-            std::chrono::system_clock::time_point  t1, t2, t3, t4, t5, t6, t7;
+
 
             std::vector<uint8_t> vec = std::vector<uint8_t>(WIDTH*HEIGHT*2);
 
-            std_msgs::UInt8MultiArrayPtr camdata(new std_msgs::UInt8MultiArray);
-            camdata->data = vec;
+            std_msgs::UInt8MultiArrayPtr camdatatemp(new std_msgs::UInt8MultiArray);
+            camdatatemp->data = vec;
+
+            camdata = camdatatemp;
 
 
-            struct 	v4l2_buffer buf;
+
             buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
             buf.memory = V4L2_MEMORY_MMAP;
             buf.index = 0;
-            struct v4l2_plane planes[FMT_NUM_PLANES];
             buf.m.planes = planes;
             buf.length = FMT_NUM_PLANES;
 
-            working_thread_ = std::thread(
-                    [&]() {
-                        ros::Rate rate(10);  // 周波数は10Hz（1秒に10回ループします）。
-                        while (ros::ok()) {  // ROSがシャットダウンされるまで、無限ループします。
+            image_pub_ = n.createTimer(ros::Duration(0.1), boost::bind(&NodeletUsbcam::imageCb, this, _1));
+        }
 
-                            t1 = std::chrono::system_clock::now();
-                            // 7. Capture Image
-                            // 8. Store Image in OpenCV Data Type
-                            {
-                                {
-                                    struct v4l2_buffer buf;
-                                    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-                                    buf.memory = V4L2_MEMORY_MMAP;
-                                    fd_set fds;
-                                    FD_ZERO(&fds);
-                                    FD_SET(fd, &fds);
-                                    struct timeval tv = {0};
-                                    tv.tv_sec = 2;
-                                    int r = select(fd+1, &fds, NULL, NULL, &tv);
+        void imageCb(const ros::TimerEvent& event) {
+            t1 = std::chrono::system_clock::now();
+            // 7. Capture Image
+            // 8. Store Image in OpenCV Data Type
+            {
+                {
+                    struct v4l2_buffer buf;
+                    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+                    buf.memory = V4L2_MEMORY_MMAP;
+                    fd_set fds;
+                    FD_ZERO(&fds);
+                    FD_SET(fd, &fds);
+                    struct timeval tv = {0};
+                    tv.tv_sec = 2;
+                    int r = select(fd+1, &fds, NULL, NULL, &tv);
 
-                                    if(-1 == r){
-                                        std::cout << "Waiting for Frame" << std::endl;
-                                        return 1;
-                                    }
+                    if(-1 == r){
+                        std::cout << "Waiting for Frame" << std::endl;
+                        return 1;
+                    }
 
-                                    memset(&(buf), 0, sizeof(buf));
-                                    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-                                    buf.memory = V4L2_MEMORY_MMAP;
+                    memset(&(buf), 0, sizeof(buf));
+                    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+                    buf.memory = V4L2_MEMORY_MMAP;
 
-                                    if(-1 == xioctl(fd, VIDIOC_DQBUF, &buf))
-                                    {
-                                        std::cout << "Retrieving Frame" << std::endl;
-                                        return 1;
-                                    }
+                    if(-1 == xioctl(fd, VIDIOC_DQBUF, &buf))
+                    {
+                        std::cout << "Retrieving Frame" << std::endl;
+                        return 1;
+                    }
 
-                                    cout << "buf.index : " << buf.index << endl;
+                    cout << "buf.index : " << buf.index << endl;
 
-                                    // Connect buffer to queue for next capture.
-                                    if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
-                                        std::cout << "VIDIOC_QBUF" << std::endl;
-                                    }
-                                    memcpy(camdata, buffers[buf.index], 640 * 480 * 2);
-                                }
+                    // Connect buffer to queue for next capture.
+                    if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
+                        std::cout << "VIDIOC_QBUF" << std::endl;
+                    }
+                    memcpy(camdata, buffers[buf.index], 640 * 480 * 2);
+                }
 
-                            }
+            }
 
-                            t2 = std::chrono::system_clock::now();
-
-                            rate.sleep();  // 適切な周波数になるようにスリープ。
-                        }
-                    });
-
+            t2 = std::chrono::system_clock::now();
         }
     };
 }

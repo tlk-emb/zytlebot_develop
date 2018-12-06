@@ -90,7 +90,7 @@ namespace autorace {
         void onInit() {
 
             n = getNodeHandle();
-            pub = n.advertise<std_msgs::UInt8MultiArray>("image_array",  640 * 480 * 2);
+            pub = n.advertise<std_msgs::UInt8MultiArray>("/pcam/image_array",  640 * 480 * 2);
 
 
 
@@ -229,9 +229,6 @@ namespace autorace {
             buf.index = 0;
             buf.m.planes = planes;
             buf.length = FMT_NUM_PLANES;
-
-            std::cout << "while loop" << std::endl;
-            std::cout << fd << std::endl;
 
             image_pub_ = n.createTimer(ros::Duration(0.1), boost::bind(&NodeletPcam::imageCb, this, _1));
         }

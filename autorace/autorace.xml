@@ -7,4 +7,8 @@
             name="autorace/nodelet_pcam"
             type="autorace::NodeletPcam"
             base_class_type="nodelet::Nodelet"/>
+    <class
+            name="autorace/nodelet_usbcam"
+            type="autorace::NodeletUsbcam"
+            base_class_type="nodelet::Nodelet"/>
 </library>
