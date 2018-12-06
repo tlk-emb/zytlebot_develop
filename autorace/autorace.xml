@@ -1,4 +1,4 @@
-<library path="lib/libnodelet_autorace">
+<library path="lib/lib{NAME_OF_PKG}">
     <class
             name="autorace/nodelet_autorace"
             type="autorace::NodeletAutorace"

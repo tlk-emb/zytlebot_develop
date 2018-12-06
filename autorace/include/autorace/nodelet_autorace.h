@@ -29,7 +29,7 @@
 
 #define PI 3.141592653589793
 
-#define DEBUG false
+#define DEBUG true
 #define RED_OBJ_SEARCH false
 #define FIGURE_SEARCH false
 
@@ -100,7 +100,7 @@ now_phaseについて
  */
 
 namespace autorace{
-    class NodeletAutorace : public nodelet:Nodelet {
+    class NodeletAutorace : public nodelet::Nodelet {
         ros::NodeHandle nh_;
         ros::Subscriber image_sub_;
         ros::Subscriber red_pub_;
@@ -217,7 +217,49 @@ namespace autorace{
         void onInit() {
             cout << "Start nodelet" << endl;
 
+
+            string filename;
+
+            // init start
+            // キャリブレーションファイル読み込み
+            if (DEBUG) {
+                filename = "/home/sou/catkin_ws/src/autorace/calibration.yml";
+            } else {
+                filename = "/home/ubuntu/catkin_ws/src/autorace/calibration.yml";
+            }
+            cv::FileStorage fs(filename, cv::FileStorage::READ);
+            fs["mtx"] >> camera_mtx;
+            fs["dist"] >> camera_dist;
+            fs.release();
+
+            // 進行方向読み込み
+            if (DEBUG) {
+                filename = "/home/sou/catkin_ws/src/autorace/honsen_dir.txt";
+            } else {
+                filename = "/home/ubuntu/catkin_ws/src/autorace/honsen_dir.txt";
+            }
+            std::ifstream ifs(filename);
+            std::string str;
+            if (ifs.fail()) {
+                std::cerr << "text file load fail" << std::endl;
+            }
+            int cnt = 0;
+            while (getline(ifs, str)) {
+                // std::cout << "[" << str << "]" << std::endl;
+                int num = std::atoi(str.c_str());
+                // std::cout << num << std::endl;
+                intersectionDir[cnt++] = num;
+            }
+            for (int i = 0; i < cnt; i++) {
+                std::cout << intersectionDir[i] << std::endl;
+            }
+
+            // init end
+
             ros::NodeHandle& nh_ = getNodeHandle();
+            twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
+            signal_search_ = nh_.advertise<std_msgs::String>("/signal_search", 1);
+
             setParams(nh_);
 
             image_sub_ = nh_.subscribe("/image_array", 1,
@@ -231,8 +273,7 @@ namespace autorace{
             */
 
             //  処理した挙動をパブリッシュ
-            twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
-            signal_search_ = nh_.advertise<std_msgs::String>("/signal_search", 1);
+
         }
         // デストラクタ
         ~NodeletAutorace() {
@@ -250,12 +291,12 @@ namespace autorace{
                 red_flag = false;
             }
 
-            cout << str << endl;
+            cout << msg.data << endl;
             cout << red_flag << endl;
         }
 
     void setParams(ros::NodeHandle& nh_) {
-        nh_.getParam("/zybo_autorace/autorace", params);
+        nh_.getParam("/nodelet_autorace/autorace", params);
 
         red_flag = false;
 
@@ -378,7 +419,7 @@ namespace autorace{
         twist.angular.x = 0.0;
         twist.angular.y = 0.0;
         twist.angular.z = 0.0;
-        limitedTwistPub();
+        //limitedTwistPub();
 
         setSearchType();
     }
@@ -747,7 +788,6 @@ namespace autorace{
             int next_x = next_tile_x;
             int next_y = next_tile_y;
 
-            std_msgs::String send_do_signal_search;
 
             // road4をスキップするために繰り返す
             while (1) {
@@ -807,6 +847,7 @@ namespace autorace{
             // タイルと入射角の差　どの方角からタイルに侵入するかを判別
             int differenceDirection = (tileRot - now_dir + 4) % 4;
 
+            std_msgs::String send_do_signal_search;
             send_do_signal_search.data = "false";
 
             if (tileType == 2 || tileType == 5 || tileType == 6) {
@@ -1572,7 +1613,7 @@ namespace autorace{
                 int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
                 int tileType = map_data[next_tile_y][next_tile_x][0];
 
-                if (tileType == 7 && nextDirection = 0) {
+                if (tileType == 7 && nextDirection == 0) {
                     setNextTile(); // T字路直進の場合スキップ
                 }
                 changePhase("find_obs");
@@ -1779,47 +1820,3 @@ namespace autorace{
         }
     };
 }
-int main(int argc, char **argv) {
-
-    string filename;
-
-    // キャリブレーションファイル読み込み
-    if (DEBUG) {
-        filename = "/home/sou/catkin_ws/src/autorace/calibration.yml";
-    } else {
-        filename = "/home/ubuntu/catkin_ws/src/autorace/calibration.yml";
-    }
-    cv::FileStorage fs(filename, cv::FileStorage::READ);
-    fs["mtx"] >> camera_mtx;
-    fs["dist"] >> camera_dist;
-    fs.release();
-
-    // 進行方向読み込み
-    if (DEBUG) {
-        filename = "/home/sou/catkin_ws/src/autorace/honsen_dir.txt";
-    } else {
-        filename = "/home/ubuntu/catkin_ws/src/autorace/honsen_dir.txt";
-    }
-    std::ifstream ifs(filename);
-    std::string str;
-    if (ifs.fail()) {
-        std::cerr << "text file load fail" << std::endl;
-        return -1;
-    }
-    int cnt = 0;
-    while (getline(ifs, str)) {
-        // std::cout << "[" << str << "]" << std::endl;
-        int num = std::atoi(str.c_str());
-        // std::cout << num << std::endl;
-        intersectionDir[cnt++] = num;
-    }
-    for (int i = 0; i < cnt; i++) {
-        std::cout << intersectionDir[i] << std::endl;
-    }
-
-    ros::init(argc, argv, "nodelet_autorace");
-    NodeletAutorace ic;
-    ros::spin();
-    return 0;
-}
-
