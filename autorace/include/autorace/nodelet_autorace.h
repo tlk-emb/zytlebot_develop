@@ -427,12 +427,12 @@ namespace autorace{
 
         // コールバック関数
         // if zybo
-        void imageCb(const std_msgs::UInt8MultiArray &msg) {
+        void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
             //void imageCb(const sensor_msgs::ImageConstPtr &msg) {
             // if_zybo
             cv::Mat base_image(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC2);
             cv::Mat dstimg(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC2);
-            memcpy(base_image.data, &msg.data[0], CAMERA_WIDTH * CAMERA_HEIGHT * 2);
+            memcpy(base_image.data, &(msg->data[0]), CAMERA_WIDTH * CAMERA_HEIGHT * 2);
             cv::cvtColor(base_image, dstimg, cv::COLOR_YUV2BGR_YUYV);
 
             cv::Mat caliblated;
