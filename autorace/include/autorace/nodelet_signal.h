@@ -82,9 +82,11 @@ namespace autorace{
 
     ros::NodeHandle nh_;
     ros::Subscriber image_sub_;
+    ros::Subscriber signal_search_;
 
     ros::Publisher red_flag_;
 
+    bool do_search;
     bool find_flag;
     int find_count;
 
@@ -102,6 +104,7 @@ public:
     }
 
     void onInit() {
+        do_search = true;
         cout << "nodelet_signal start" << endl;
 
         check_window();
@@ -110,6 +113,8 @@ public:
         // TODO subscribe先はtopicに応じて変更
         image_sub_ = nh_.subscribe("/usbcam/image_array", 1,
                                    &NodeletSignal::imageCb, this);
+
+        signal_search_ = nh_.subscribe("/signal_search", 1, &NodeletSignal::signalSearchCb, this);
 
         red_flag_ = nh_.advertise<std_msgs::String>("/red_flag", 1);
 
@@ -120,83 +125,96 @@ public:
         find_count = 0;
     }
 
+    void signalSearchCb(const std_msgs::String &msg) {
+        if (msg.data == "true") {
+            do_search = true;
+        } else {
+            do_search = false;
+        }
+
+        cout << "search signal = " << msg.data << "!!!!!!" << endl;
+    }
+
     // コールバック関数
     void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
-        cv::Mat baseImage(480, 640, CV_8UC2);
-        cv::Mat dstimg(480, 640, CV_8UC2);
-        memcpy(baseImage.data, &(msg->data[0]), 640 * 480 * 2);
-        cv::cvtColor(baseImage, dstimg, cv::COLOR_YUV2BGR_YUYV);
+        if (do_search) {
+            cv::Mat baseImage(480, 640, CV_8UC2);
+            cv::Mat dstimg(480, 640, CV_8UC2);
+            memcpy(baseImage.data, &(msg->data[0]), 640 * 480 * 2);
+            cv::cvtColor(baseImage, dstimg, cv::COLOR_YUV2BGR_YUYV);
 
 
-        // baseImageをなんか処理する
+            // baseImageをなんか処理する
 
-        // TODO 640*480以外の場合
-        // resize(baseImage, baseImage, cv::Size(), 640.0/baseImage.cols ,480.0/baseImage.rows);
+            // TODO 640*480以外の場合
+            // resize(baseImage, baseImage, cv::Size(), 640.0/baseImage.cols ,480.0/baseImage.rows);
 
-        std::chrono::system_clock::time_point  t1, t2, t3, t4, t5, t6, t7;
-        t1 = std::chrono::system_clock::now();
-        cv::Mat frame_copy = dstimg.clone();
+            std::chrono::system_clock::time_point t1, t2, t3, t4, t5, t6, t7;
+            t1 = std::chrono::system_clock::now();
+            cv::Mat frame_copy = dstimg.clone();
 
-        //process the current frame
-        auto rst = test_one_frame(dstimg);
+            //process the current frame
+            auto rst = test_one_frame(dstimg);
 
-        bool now_find = rst.size() > 0;
+            bool now_find = rst.size() > 0;
 
-        if (now_find) { // 見つかった場合
-            if (find_count >= 0) { // find_countが0以上の場合
-                find_count++;
-            } else {
-                find_count = 1; // find_countが負の値の場合
+            if (now_find) { // 見つかった場合
+                if (find_count >= 0) { // find_countが0以上の場合
+                    find_count++;
+                } else {
+                    find_count = 1; // find_countが負の値の場合
+                }
+            } else { //　見つからなかった場合
+                if (find_count <= 0) {
+                    find_count--; // find_countが負の場合、-1
+                } else {
+                    find_count = -1; // find_countが正の値の場合
+                }
             }
-        } else { //　見つからなかった場合
-            if (find_count <= 0) {
-                find_count--; // find_countが負の場合、-1
-            } else {
-                find_count = -1; // find_countが正の値の場合
+
+            // 3回連続で見つけたり見失ったらフラグを変更
+            if (find_count >= 3) {
+                find_flag = true;
+            } else if (find_count <= -3) {
+                find_flag = false;
             }
+
+            //draw rectangle on detecting area
+            for (int j = 0; j < rst.size(); j++) {
+                vector<int> coord = rst[j].first;
+                float proba = rst[j].second;
+                int sx = coord[0];
+                int sy = coord[1];
+                int ex = coord[2];
+                int ey = coord[3];
+                cout << sx << " " << sy << " " << ex << " " << ey << endl;
+                cout << proba << endl;
+                rectangle(frame_copy, Point(sx, sy), Point(ex, ey), Scalar(0, 0, 200), 2); //x,y //Scaler = B,G,R
+                cv::putText(frame_copy, to_string(proba), cv::Point(sx + 5, sy + 5), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+                            cv::Scalar(255, 0, 0), 1, CV_AA);
+            }
+            //cv::imshow("result", frame_copy);
+            t2 = std::chrono::system_clock::now();
+            //show fps
+            double elapsed = (double) std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+            cout << "elapsed:" << elapsed << "[milisec]" << endl;
+            cout << "fps:" << 1000.0 / elapsed << "[fps]" << endl;
+
+
+            std::cout << "publish something" << std::endl;
+
+            std_msgs::String send_msg;
+
+            // flagの送信処理
+            std::stringstream ss;
+            if (find_flag) {
+                ss << "true";
+            } else {
+                ss << "false";
+            }
+            send_msg.data = ss.str();
+            red_flag_.publish(send_msg);
         }
-
-        // 3回連続で見つけたり見失ったらフラグを変更
-        if (find_count >= 3) {
-            find_flag = true;
-        } else if (find_count <= -3) {
-            find_flag = false;
-        }
-
-        //draw rectangle on detecting area
-        for(int j = 0; j < rst.size(); j++){
-            vector<int> coord = rst[j].first;
-            float proba = rst[j].second;
-            int sx = coord[0];
-            int sy = coord[1];
-            int ex = coord[2];
-            int ey = coord[3];
-            cout << sx << " " << sy << " " << ex << " " << ey << endl;
-            cout << proba << endl;
-            rectangle(frame_copy, Point(sx, sy), Point(ex, ey), Scalar(0,0,200), 2); //x,y //Scaler = B,G,R
-            cv::putText(frame_copy, to_string(proba), cv::Point(sx+5,sy+5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255,0,0), 1, CV_AA);
-        }
-        //cv::imshow("result", frame_copy);
-        t2 = std::chrono::system_clock::now();
-        //show fps
-        double elapsed = (double)std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count();
-        cout << "elapsed:" << elapsed << "[milisec]" << endl;
-        cout << "fps:" << 1000.0/elapsed << "[fps]" << endl;
-
-
-        std::cout << "publish something" << std::endl;
-
-        std_msgs::String send_msg;
-
-        // flagの送信処理
-        std::stringstream ss;
-        if (find_flag) {
-            ss << "true";
-        } else {
-            ss << "false";
-        }
-        send_msg.data = ss.str();
-        red_flag_.publish(send_msg);
     }
 
 

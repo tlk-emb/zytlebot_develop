@@ -883,7 +883,7 @@ namespace autorace{
                 twist.angular.z = 0;
 
                 limitedTwistPub();
-                if (now - phaseStartTime > ros::Duration(10.0)) {
+                if (now - phaseStartTime > ros::Duration(20.0)) {
                     changePhase("straight");
                     setNextTile();
                 }
