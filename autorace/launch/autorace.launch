@@ -4,4 +4,5 @@
   	<rosparam command="load" file="$(find autorace)/autorace.yaml" />
 	<param name="autorace/project_folder" value="$(find autorace)" />
   </node>
+  <node pkg="nodelet" type="nodelet" name="nodelet_pcam" args="load autorace/nodelet_pcam autorace_nodelet_manager" output="screen">
 </launch>

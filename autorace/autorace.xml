@@ -1,6 +1,10 @@
-<library path="lib/lib{NAME_OF_PKG}">
+<library path="lib/libautorace">
     <class
             name="autorace/nodelet_autorace"
             type="autorace::NodeletAutorace"
+            base_class_type="nodelet::Nodelet"/>
+    <class
+            name="autorace/nodelet_pcam"
+            type="autorace::NodeletPcam"
             base_class_type="nodelet::Nodelet"/>
 </library>
