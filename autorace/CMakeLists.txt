@@ -172,6 +172,6 @@ include_directories(
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
-add_library(autorace src/autorace.cpp)
+add_library(autorace src/autorace.cpp include/signal_lib/xcalc_hog.c include/signal_lib/xcalc_hog_linux.c  include/signal_lib/xcalc_hog_sinit.c include/signal_lib/linuxmisc.cpp include/signal_lib/linuxmmap.cpp)
 target_link_libraries(autorace ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 add_definitions(-std=c++11)

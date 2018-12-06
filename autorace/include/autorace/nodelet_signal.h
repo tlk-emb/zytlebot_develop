@@ -102,8 +102,9 @@ public:
     }
 
     void onInit() {
+        cout << "nodelet_signal start" << endl;
 
-        ros::NodeHandle& nh_ = getNodeHandle();
+        nh_ = getNodeHandle();
         // TODO subscribe先はtopicに応じて変更
         image_sub_ = nh_.subscribe("/usbcam/image_array", 1,
                                    &NodeletSignal::imageCb, this);
@@ -111,7 +112,7 @@ public:
         red_flag_ = nh_.advertise<std_msgs::String>("/red_flag", 1);
 
         if(hwmode) hw_setup();
-        cout << "hw setup completed" << endl;
+        cout << "nodelet hw setup completed" << endl;
 
         find_flag = false;
         find_count = 0;
