@@ -1,8 +1,14 @@
 <launch>
+  <arg name="multi_robot_name" default=""/>
   <node pkg="nodelet" type="nodelet" name="autorace_nodelet_manager" args="manager" output="screen"/>
   <node pkg="nodelet" type="nodelet" name="nodelet_autorace" args="load autorace/nodelet_autorace autorace_nodelet_manager" output="screen">
   	<rosparam command="load" file="$(find autorace)/autorace.yaml" />
 	<param name="autorace/project_folder" value="$(find autorace)" />
   </node>
-  <node pkg="nodelet" type="nodelet" name="nodelet_pcam" args="load autorace/nodelet_pcam autorace_nodelet_manager" output="screen">
+  <node pkg="nodelet" type="nodelet" name="nodelet_pcam" args="load autorace/nodelet_pcam autorace_nodelet_manager" output="screen"></node>
+    <node pkg="rosserial_python" type="serial_node.py" name="turtlebot3_core" output="screen">
+      <param name="port" value="/dev/ttyACM0"/>
+      <param name="baud" value="115200"/>
+      <param name="tf_prefix" value="$(arg multi_robot_name)"/>
+    </node>
 </launch>

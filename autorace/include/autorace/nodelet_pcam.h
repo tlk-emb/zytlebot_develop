@@ -22,6 +22,7 @@ sudo media-ctl -d /dev/media0 -V '"43c60000.mipi_csi2_rx_subsystem":0 [fmt:UYVY/
 
 
 #include <nodelet/nodelet.h>
+#include <thread>
 
 #include <fcntl.h>
 #include <errno.h>
@@ -54,6 +55,10 @@ static int xioctl(int fd, int request, void *arg){
 namespace autorace {
     class NodeletPcam : public nodelet::Nodelet {
 
+
+        ros::Timer pub_image_;
+        std::thread working_thread_;
+
     public:
         // コンストラクタ
         NodeletPcam() {
@@ -61,10 +66,9 @@ namespace autorace {
 
         ~NodeletPcam() {
         }
-        
+
         void onInit() {
 
-            ros::init(argc, argv, "nodelet_pcam");
             ros::NodeHandle n;
             ros::Publisher pub = n.advertise<std_msgs::UInt8MultiArray>("image_array",  640 * 480 * 2);
 
@@ -75,7 +79,7 @@ namespace autorace {
             fd = open("/dev/video0", O_RDWR, 0);
             if (fd == -1){
                 std::cout << "Failed to open video device." << std::endl;
-                return 1;
+                return;
             }
 
             // 2. Querying video capabilities.
@@ -83,7 +87,7 @@ namespace autorace {
             memset(&caps, 0, sizeof(caps));
             if (-1 == xioctl(fd, VIDIOC_QUERYCAP, &caps)){
                 std::cout << "Failed to query capabilities." << std::endl;
-                return 1;
+                return;
             }
             std::cout << "bus_info	: " << caps.bus_info << std::endl;
             std::cout << "card		: " << caps.card << std::endl;
@@ -103,7 +107,7 @@ namespace autorace {
 
                 if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt)){
                     std::cout << "Failed to set pixel format." << std::endl;
-                    return 1;
+                    return;
                 }
             }
 
@@ -120,11 +124,11 @@ namespace autorace {
 
                 if (-1 == xioctl(fd, VIDIOC_REQBUFS, &reqbuf)){
                     std::cout << "Failed to request buffer." << std::endl;
-                    return 1;
+                    return;
                 }
                 if (reqbuf.count < MAX_BUF_COUNT){
                     std::cout << "Not enought buffer memory." << std::endl;
-                    return 1;
+                    return;
                 }
                 std::cout << "reqbuf.count : " << reqbuf.count << std::endl;
 
@@ -148,7 +152,7 @@ namespace autorace {
                     buf.index = i;
                     if(-1 == xioctl(fd, VIDIOC_QUERYBUF, &buf)){
                         std::cout << "Failed to query buffer." << std::endl;
-                        return 1;
+                        return;
                     }
                     num_planes = buf.length;
                     std::cout << "buf.length : " << buf.length << std::endl;
@@ -175,7 +179,7 @@ namespace autorace {
                 if(-1 == xioctl(fd, VIDIOC_STREAMON, &buf.type))
                 {
                     std::cout << "Fail to start Capture" << std::endl;
-                    return 1;
+                    return;
                 }
             }
 
@@ -190,9 +194,8 @@ namespace autorace {
             buf.m.planes = planes;
             buf.length = FMT_NUM_PLANES;
 
-            pub_image_ = n.createTimer(
-                    ros::Duration(0.1),  // 0.1秒に一回＝10Hz。
-                    [&](const auto& message) {
+            working_thread_ = std::thread(
+                    [&]() {
                         // 7. Capture Image
                         {
                             // Connect buffer to queue for next capture.
@@ -209,12 +212,12 @@ namespace autorace {
 
                             if(-1 == r){
                                 std::cout << "Waiting for Frame" << std::endl;
-                                return 1;
+                                return;
                             }
 
                             if(-1 == xioctl(fd, VIDIOC_DQBUF, &buf)){
                                 std::cout << "Retrieving Frame" << std::endl;
-                                return 1;
+                                return;
                             }
 
                         }
