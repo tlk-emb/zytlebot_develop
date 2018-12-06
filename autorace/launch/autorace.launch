@@ -8,9 +8,4 @@
   <node pkg="nodelet" type="nodelet" name="nodelet_pcam" args="load autorace/nodelet_pcam autorace_nodelet_manager" output="screen"></node>
   <node pkg="nodelet" type="nodelet" name="nodelet_usbcam" args="load autorace/nodelet_usbcam autorace_nodelet_manager" output="screen"></node>
   <node pkg="nodelet" type="nodelet" name="nodelet_signal" args="load autorace/nodelet_signal autorace_nodelet_manager" output="screen"></node>
-    <node pkg="rosserial_python" type="serial_node.py" name="turtlebot3_core" output="screen">
-      <param name="port" value="/dev/ttyACM0"/>
-      <param name="baud" value="115200"/>
-      <param name="tf_prefix" value="$(arg multi_robot_name)"/>
-    </node>
 </launch>
