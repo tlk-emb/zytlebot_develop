@@ -104,6 +104,8 @@ public:
     void onInit() {
         cout << "nodelet_signal start" << endl;
 
+        check_window();
+        
         nh_ = getNodeHandle();
         // TODO subscribe先はtopicに応じて変更
         image_sub_ = nh_.subscribe("/usbcam/image_array", 1,
@@ -133,10 +135,10 @@ public:
 
         std::chrono::system_clock::time_point  t1, t2, t3, t4, t5, t6, t7;
         t1 = std::chrono::system_clock::now();
-        cv::Mat frame_copy = baseImage.clone();
+        cv::Mat frame_copy = dstimg.clone();
 
         //process the current frame
-        auto rst = test_one_frame(baseImage);
+        auto rst = test_one_frame(dstimg);
 
         bool now_find = rst.size() > 0;
 
