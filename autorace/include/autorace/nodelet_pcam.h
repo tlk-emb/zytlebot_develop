@@ -183,8 +183,11 @@ namespace autorace {
                 }
             }
 
-            std_msgs::UInt8MultiArray camdata;
-            camdata.data = std::vector<uint8_t>(WIDTH*HEIGHT*2);
+            std::vector<uint8_t> vec = std::vector<uint8_t>(WIDTH*HEIGHT*2);
+
+            std_msgs::UInt8MultiArrayPtr camdata(new std_msgs::UInt8MultiArray);
+            camdata->data = vec;
+
 
             struct 	v4l2_buffer buf;
             buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
@@ -226,7 +229,7 @@ namespace autorace {
                         // 8. Store Image in OpenCV Data Type
                         {
                             for(int j = 0; j < num_planes; j++){
-                                memcpy(&camdata.data[0], buffers[0].start[j], WIDTH*HEIGHT*2);
+                                memcpy(&(camdata->data[0]), buffers[0].start[j], WIDTH*HEIGHT*2);
                                 pub.publish(camdata);
                                 ROS_INFO("I published something!");
                             }
