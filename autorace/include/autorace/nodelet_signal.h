@@ -15,10 +15,10 @@
 #include <stdio.h>
 #include <geometry_msgs/Twist.h>
 
-#include "feature.h"
-#include "forest.h"
-#include "window_candidate.h"
-#include "hw.h"
+#include "signal_lib/feature.h"
+#include "signal_lib/forest.h"
+#include "signal_lib/window_candidate.h"
+#include "signal_lib/hw.h"
 #include "std_msgs/String.h"
 
 #include <sstream>
@@ -81,9 +81,7 @@ namespace autorace{
     class NodeletSignal : public nodelet::Nodelet {
 
     ros::NodeHandle nh_;
-    image_transport::ImageTransport it_;
-    image_transport::Subscriber image_sub_;
-    image_transport::Publisher image_pub_;
+    ros::Subscriber image_sub_;
 
     ros::Publisher red_flag_;
 
@@ -92,11 +90,11 @@ namespace autorace{
 
 public:
     // コンストラクタ
-    ImageConverter(){
+    NodeletSignal(){
     }
 
     // デストラクタ
-    ~ImageConverter()
+    ~NodeletSignal()
     {
         // 全てのウインドウは破壊
         cv::destroyAllWindows();
@@ -108,7 +106,7 @@ public:
         ros::NodeHandle& nh_ = getNodeHandle();
         // TODO subscribe先はtopicに応じて変更
         image_sub_ = nh_.subscribe("/usbcam/image_array", 1,
-                                   &NodeletAutorace::imageCb, this);
+                                   &NodeletSignal::imageCb, this);
 
         red_flag_ = nh_.advertise<std_msgs::String>("/red_flag", 1);
 
@@ -118,16 +116,12 @@ public:
         find_flag = false;
         find_count = 0;
     }
-    }
-
-
-
 
     // コールバック関数
     void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
-        cv::Mat baseImage(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC2);
-        cv::Mat dstimg(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC2);
-        memcpy(baseImage.data, &(msg->data[0]), CAMERA_WIDTH * CAMERA_HEIGHT * 2);
+        cv::Mat baseImage(480, 640, CV_8UC2);
+        cv::Mat dstimg(480, 640, CV_8UC2);
+        memcpy(baseImage.data, &(msg->data[0]), 640 * 480 * 2);
         cv::cvtColor(baseImage, dstimg, cv::COLOR_YUV2BGR_YUYV);
 
 
@@ -188,10 +182,6 @@ public:
 
 
         std::cout << "publish something" << std::endl;
-        // publish
-        cv_ptr->image = frame_copy;
-        image_pub_.publish(cv_ptr->toImageMsg());
-
 
         std_msgs::String send_msg;
 
@@ -398,14 +388,6 @@ public:
         }
         return rst;
     }
-};
-
-int main(int argc, char** argv)
-{
-    check_window();
-
-    ros::init(argc, argv, "red_realtime");
-    ImageConverter ic;
-    ros::spin();
-    return 0;
+    };
 }
+

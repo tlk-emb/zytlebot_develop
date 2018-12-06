@@ -38,23 +38,14 @@ using namespace std;
 #define WIDTH 640
 #define HEIGHT 480
 
-static int xioctl(int fd, int request, void *arg)
-{
-    int r;
-    do {
-        r = ioctl (fd, request, arg);
-        if (request == VIDIOC_DQBUF) {
-            std::cout << "r : " << r << std::endl;
-        }
-    } while (-1 == r && EINTR == errno);
-    return r;
-}
-unsigned char *buffers[4];
+
 
 namespace autorace {
     class NodeletUsbcam : public nodelet::Nodelet {
 
     private:
+        unsigned char *buffers[4];
+
         ros::NodeHandle n;
         int fd;
         struct v4l2_capability caps;
