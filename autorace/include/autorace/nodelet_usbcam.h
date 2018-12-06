@@ -35,8 +35,6 @@
 
 using namespace std;
 #define REQUEST_BUFFER_NUM 10
-#define WIDTH 640
-#define HEIGHT 480
 
 static int xioctl(int fd, int request, void *arg)
 {
@@ -71,22 +69,22 @@ namespace autorace {
 
     public:
         // コンストラクタ
-        NodeletUsbcam() {
+        NodeletPcam() {
         }
 
-        ~NodeletUsbcam() {
+        ~NodeletPcam() {
         }
 
         void onInit() {
 
             n = getNodeHandle();
-            pub = n.advertise<std_msgs::UInt8MultiArray>("/usbcam/image_array",  640 * 480 * 2);
+            ros::Publisher pub = n.advertise<std_msgs::UInt8MultiArray>("/usbcam/image_array",  640 * 480 * 2);
 
             fd = open("/dev/video1", O_RDWR, 0);
             if (fd == -1)
             {
                 std::cout << "Failed to open video device." << std::endl;
-                return;
+                return 1;
             }
 
             // 2. Querying video capabilities.
@@ -94,7 +92,7 @@ namespace autorace {
             if (-1 == xioctl(fd, VIDIOC_QUERYCAP, &caps))
             {
                 std::cout << "Failed to query capabilities." << std::endl;
-                return;
+                return 1;
             }
             std::cout << "bus_info	: " << caps.bus_info << std::endl;
             std::cout << "card		: " << caps.card << std::endl;
@@ -115,7 +113,7 @@ namespace autorace {
                 if (-1 == xioctl(fd, VIDIOC_S_FMT, &fmt))
                 {
                     std::cout << "Failed to set pixel format." << std::endl;
-                    return;
+                    return 1;
                 }
             }
 
@@ -233,8 +231,7 @@ namespace autorace {
                     if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
                         std::cout << "VIDIOC_QBUF" << std::endl;
                     }
-                    memcpy(&(camdata->data[0]), buffers[buf.index], 640 * 480 * 2);
-		    pub.publish(camdata);
+                    memcpy(camdata, buffers[buf.index], 640 * 480 * 2);
                 }
 
             }
