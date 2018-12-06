@@ -55,8 +55,7 @@ static int xioctl(int fd, int request, void *arg){
 namespace autorace {
     class NodeletPcam : public nodelet::Nodelet {
 
-
-        ros::Timer pub_image_;
+    private:
         std::thread working_thread_;
 
     public:
@@ -199,40 +198,46 @@ namespace autorace {
 
             working_thread_ = std::thread(
                     [&]() {
-                        // 7. Capture Image
-                        {
-                            // Connect buffer to queue for next capture.
-                            if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
-                                std::cout << "VIDIOC_QBUF" << std::endl;
+                        ros::Rate rate(10);  // 周波数は10Hz（1秒に10回ループします）。
+                        while (ros::ok()) {  // ROSがシャットダウンされるまで、無限ループします。
+
+                            std::cout << "while loop" << std::endl;
+                            // 7. Capture Image
+                            {
+                                // Connect buffer to queue for next capture.
+                                if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
+                                    std::cout << "VIDIOC_QBUF" << std::endl;
+                                }
+
+                                fd_set fds;
+                                FD_ZERO(&fds);
+                                FD_SET(fd, &fds);
+                                struct timeval tv = {0};
+                                tv.tv_sec = 2;
+                                int r = select(fd + 1, &fds, NULL, NULL, &tv);
+
+                                if (-1 == r) {
+                                    std::cout << "Waiting for Frame" << std::endl;
+                                    return;
+                                }
+
+                                if (-1 == xioctl(fd, VIDIOC_DQBUF, &buf)) {
+                                    std::cout << "Retrieving Frame" << std::endl;
+                                    return;
+                                }
+
                             }
 
-                            fd_set fds;
-                            FD_ZERO(&fds);
-                            FD_SET(fd, &fds);
-                            struct timeval tv = {0};
-                            tv.tv_sec = 2;
-                            int r = select(fd+1, &fds, NULL, NULL, &tv);
 
-                            if(-1 == r){
-                                std::cout << "Waiting for Frame" << std::endl;
-                                return;
+                            // 8. Store Image in OpenCV Data Type
+                            {
+                                for (int j = 0; j < num_planes; j++) {
+                                    memcpy(&(camdata->data[0]), buffers[0].start[j], WIDTH * HEIGHT * 2);
+                                    pub.publish(camdata);
+                                    ROS_INFO("I published something!");
+                                }
                             }
-
-                            if(-1 == xioctl(fd, VIDIOC_DQBUF, &buf)){
-                                std::cout << "Retrieving Frame" << std::endl;
-                                return;
-                            }
-
-                        }
-
-
-                        // 8. Store Image in OpenCV Data Type
-                        {
-                            for(int j = 0; j < num_planes; j++){
-                                memcpy(&(camdata->data[0]), buffers[0].start[j], WIDTH*HEIGHT*2);
-                                pub.publish(camdata);
-                                ROS_INFO("I published something!");
-                            }
+                            rate.sleep();  // 適切な周波数になるようにスリープ。
                         }
                     });
 
