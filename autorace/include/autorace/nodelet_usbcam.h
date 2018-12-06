@@ -1,9 +1,3 @@
-/*
-before run this code, you should run the following commands.
-sudo apt-get install v4l-utils
-sudo media-ctl -d /dev/media0 -V '"ov5640 2-003c":0 [fmt:UYVY/'1920x1080'@1/'15' field:none]'
-sudo media-ctl -d /dev/media0 -V '"43c60000.mipi_csi2_rx_subsystem":0 [fmt:UYVY/'1920x1080' field:none]'
-*/
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/mman.h>
@@ -68,7 +62,6 @@ namespace autorace {
 
         std_msgs::UInt8MultiArrayPtr camdata;
         struct 	v4l2_buffer buf;
-        struct v4l2_plane planes[FMT_NUM_PLANES];
 
         ros::Timer image_pub_;
 
@@ -135,7 +128,7 @@ namespace autorace {
                 if (-1 == xioctl(fd, VIDIOC_REQBUFS, &req))
                 {
                     std::cout << "Failed to request buffer." << std::endl;
-                    return 1;
+                    return;
                 }
                 cout << "we could get " << req.count  << " buffers. " << endl;
                 got_buffer_num = req.count;
@@ -152,7 +145,7 @@ namespace autorace {
                     if(-1 == xioctl(fd, VIDIOC_QUERYBUF, &buf))
                     {
                         std::cout << "Failed to query buffer." << std::endl;
-                        return 1;
+                        return;
                     }
 
                     std::cout << "buf.length : " << buf.length << std::endl;
@@ -185,7 +178,7 @@ namespace autorace {
                 if(-1 == xioctl(fd, VIDIOC_STREAMON, &buf.type))
                 {
                     std::cout << "Start Capture" << std::endl;
-                    return 1;
+                    return;
                 }
             }
 
@@ -197,14 +190,6 @@ namespace autorace {
             camdatatemp->data = vec;
 
             camdata = camdatatemp;
-
-
-
-            buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-            buf.memory = V4L2_MEMORY_MMAP;
-            buf.index = 0;
-            buf.m.planes = planes;
-            buf.length = FMT_NUM_PLANES;
 
             image_pub_ = n.createTimer(ros::Duration(0.1), boost::bind(&NodeletUsbcam::imageCb, this, _1));
         }
@@ -227,7 +212,7 @@ namespace autorace {
 
                     if(-1 == r){
                         std::cout << "Waiting for Frame" << std::endl;
-                        return 1;
+                        return;
                     }
 
                     memset(&(buf), 0, sizeof(buf));
@@ -237,7 +222,7 @@ namespace autorace {
                     if(-1 == xioctl(fd, VIDIOC_DQBUF, &buf))
                     {
                         std::cout << "Retrieving Frame" << std::endl;
-                        return 1;
+                        return;
                     }
 
                     cout << "buf.index : " << buf.index << endl;
