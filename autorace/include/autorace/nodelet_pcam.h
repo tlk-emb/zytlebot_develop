@@ -20,6 +20,7 @@ sudo media-ctl -d /dev/media0 -V '"43c60000.mipi_csi2_rx_subsystem":0 [fmt:UYVY/
 #include <sensor_msgs/image_encodings.h>
 #include <image_transport/image_transport.h>
 
+#include <boost/smart_ptr/make_shared_object.hpp>
 
 #include <nodelet/nodelet.h>
 #include <thread>
@@ -55,8 +56,28 @@ static int xioctl(int fd, int request, void *arg){
 namespace autorace {
     class NodeletPcam : public nodelet::Nodelet {
 
+        ros::NodeHandle n;
+
     private:
         std::thread working_thread_;
+        unsigned char *buffer;
+        int fd;
+        struct v4l2_capability caps;
+
+        int num_planes;
+        struct v4l2_requestbuffers reqbuf;
+        int MAX_BUF_COUNT;
+
+
+        std_msgs::UInt8MultiArrayPtr camdata;
+        struct 	v4l2_buffer buf;
+
+
+        struct v4l2_plane planes[FMT_NUM_PLANES];
+
+        ros::Timer image_pub_;
+
+        ros::Publisher pub;
 
     public:
         // コンストラクタ
@@ -68,13 +89,12 @@ namespace autorace {
 
         void onInit() {
 
-            ros::NodeHandle n;
-            ros::Publisher pub = n.advertise<std_msgs::UInt8MultiArray>("image_array",  640 * 480 * 2);
+            n = getNodeHandle();
+            pub = n.advertise<std_msgs::UInt8MultiArray>("image_array",  640 * 480 * 2);
 
-            unsigned char *buffer;
+
 
             // 1. Open Video Device.
-            int fd;
             fd = open("/dev/video0", O_RDWR, 0);
             if (fd == -1){
                 std::cout << "Failed to open video device." << std::endl;
@@ -82,7 +102,6 @@ namespace autorace {
             }
 
             // 2. Querying video capabilities.
-            struct v4l2_capability caps;
             memset(&caps, 0, sizeof(caps));
             if (-1 == xioctl(fd, VIDIOC_QUERYCAP, &caps)){
                 std::cout << "Failed to query capabilities." << std::endl;
@@ -110,9 +129,7 @@ namespace autorace {
                 }
             }
 
-            int num_planes;
-            struct v4l2_requestbuffers reqbuf;
-            const int MAX_BUF_COUNT = 3;/*we want at least 3 buffers*/
+            MAX_BUF_COUNT = 3;/*we want at least 3 buffers*/
 
             // 4. Request Buffer
             {
@@ -172,16 +189,16 @@ namespace autorace {
 
             //5.5 QBUF Request
             {
-                for(int i = 0; i < reqbuf.count; i++) {
+                for (int i = 0; i < reqbuf.count; ++i) {
                     struct v4l2_buffer buf;
-                    memset(&(buf), 0, sizeof(buf));
                     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
                     buf.memory = V4L2_MEMORY_MMAP;
                     buf.index = i;
-                    if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
-                        std::cout << "Fail to VIDIOC_QBUF" << std::endl;
-                        return;
-                    }
+                    struct v4l2_plane planes[FMT_NUM_PLANES];
+                    buf.m.planes = planes;
+                    buf.length = FMT_NUM_PLANES;
+                    if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
+                        std::cerr << "VIDIOC_QBUF" << std::endl;
                 }
             }
 
@@ -199,64 +216,62 @@ namespace autorace {
 
             std::vector<uint8_t> vec = std::vector<uint8_t>(WIDTH*HEIGHT*2);
 
-            std_msgs::UInt8MultiArrayPtr camdata(new std_msgs::UInt8MultiArray);
-            camdata->data = vec;
+            std_msgs::UInt8MultiArrayPtr camdatatemp(new std_msgs::UInt8MultiArray);
+            camdatatemp->data = vec;
+
+            camdata = camdatatemp;
 
 
-            struct 	v4l2_buffer buf;
+
+
             buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
             buf.memory = V4L2_MEMORY_MMAP;
             buf.index = 0;
-            struct v4l2_plane planes[FMT_NUM_PLANES];
             buf.m.planes = planes;
             buf.length = FMT_NUM_PLANES;
 
-            working_thread_ = std::thread(
-                    [&]() {
-                        ros::Rate rate(10);  // 周波数は10Hz（1秒に10回ループします）。
-                        while (ros::ok()) {  // ROSがシャットダウンされるまで、無限ループします。
+            std::cout << "while loop" << std::endl;
+            std::cout << fd << std::endl;
 
-                            std::cout << "while loop" << std::endl;
-                            // 7. Capture Image
-                            {
-                                std::cout << fd << std::endl;
-                                fd_set fds;
-                                FD_ZERO(&fds);
-                                FD_SET(fd, &fds);
-                                struct timeval tv = {0};
-                                tv.tv_sec = 2;
-                                int r = select(fd + 1, &fds, NULL, NULL, &tv);
+            image_pub_ = n.createTimer(ros::Duration(0.1), boost::bind(&NodeletPcam::imageCb, this, _1));
+        }
 
-                                if (-1 == r) {
-                                    std::cout << "Waiting for Frame" << std::endl;
-                                    return;
-                                }
+        void imageCb(const ros::TimerEvent& event) {
+            // 7. Capture Image
+            {
+                fd_set fds;
+                FD_ZERO(&fds);
+                FD_SET(fd, &fds);
+                struct timeval tv = {0};
+                tv.tv_sec = 2;
+                int r = select(fd + 1, &fds, NULL, NULL, &tv);
 
-                                if (-1 == xioctl(fd, VIDIOC_DQBUF, &buf)) {
-                                    std::cout << "Retrieving Frame" << std::endl;
-                                    return;
-                                }
+                if (-1 == r) {
+                    std::cout << "Waiting for Frame" << std::endl;
+                    return;
+                }
 
-                                // Connect buffer to queue for next capture.
-                                if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
-                                    std::cout << "VIDIOC_QBUF" << std::endl;
-                                }
+                if (-1 == xioctl(fd, VIDIOC_DQBUF, &buf)) {
+                    std::cout << "Retrieving Frame" << std::endl;
+                    return;
+                }
+                std::cout << "buf.index " << buf.index << std::endl;
+                // Connect buffer to queue for next capture.
+                if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
+                    std::cout << "VIDIOC_QBUF" << std::endl;
+                }
 
-                            }
+            }
 
 
-                            // 8. Store Image in OpenCV Data Type
-                            {
-                                for (int j = 0; j < num_planes; j++) {
-                                    memcpy(&(camdata->data[0]), buffers[0].start[j], WIDTH * HEIGHT * 2);
-                                    pub.publish(camdata);
-                                    ROS_INFO("I published something!");
-                                }
-                            }
-                            rate.sleep();  // 適切な周波数になるようにスリープ。
-                        }
-                    });
-
+            // 8. Store Image in OpenCV Data Type
+            {
+                for (int j = 0; j < num_planes; j++) {
+                    memcpy(&(camdata->data[0]), buffers[buf.index].start[j], WIDTH * HEIGHT * 2);
+                    pub.publish(camdata);
+                    ROS_INFO("I published something!");
+                }
+            }
         }
     };
 }
