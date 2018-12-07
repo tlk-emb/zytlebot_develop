@@ -538,9 +538,11 @@ namespace autorace{
                 // bool nowFindRightLaneRightT = intersectionDetection(around_lines, aroundWhiteBinary);
                 // searchRightLaneRightT(nowFindRightLaneRightT);
             } else if (now_phase == "turn_left") {
-                leftTurnDetect(aroundWhiteBinary);
+                leftTurn();
+                // leftTurnDetect(aroundWhiteBinary);
             } else if (now_phase == "turn_right") {
-                rightTurnDetect(aroundWhiteBinary);
+                determinationRightTurn();
+                // rightTurnDetect(aroundWhiteBinary);
             } else if (now_phase == "find_obs") {
                 obstacleAvoidance(road_white_binary, aroundWhiteBinary);
             } else if (now_phase == "intersection_straight") {
