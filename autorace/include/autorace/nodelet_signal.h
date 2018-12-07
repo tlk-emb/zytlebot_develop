@@ -138,7 +138,7 @@ public:
     // コールバック関数
     void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
         std_msgs::String send_msg;
-        send_msg.data = false;
+        send_msg.data = "false";
         if (do_search) {
             cv::Mat baseImage(480, 640, CV_8UC2);
             cv::Mat dstimg(480, 640, CV_8UC2);
