@@ -140,6 +140,7 @@ public:
         std_msgs::String send_msg;
         send_msg.data = "false";
         if (do_search) {
+            cout << "searching signal!!!!" << endl;
             cv::Mat baseImage(480, 640, CV_8UC2);
             cv::Mat dstimg(480, 640, CV_8UC2);
             memcpy(baseImage.data, &(msg->data[0]), 640 * 480 * 2);
@@ -211,6 +212,7 @@ public:
                 send_msg.data = "true";
             }
         } else {
+            cout << "don't search signal" << endl;
             find_count = 0;
         }
 
