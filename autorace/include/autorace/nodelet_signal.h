@@ -137,6 +137,8 @@ public:
 
     // コールバック関数
     void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
+        std_msgs::String send_msg;
+        send_msg.data = false;
         if (do_search) {
             cv::Mat baseImage(480, 640, CV_8UC2);
             cv::Mat dstimg(480, 640, CV_8UC2);
@@ -203,18 +205,16 @@ public:
 
             std::cout << "publish something" << std::endl;
 
-            std_msgs::String send_msg;
-
             // flagの送信処理
-            std::stringstream ss;
+            std_msgs::String send_msg;
             if (find_flag) {
-                ss << "true";
-            } else {
-                ss << "false";
+                send_msg.data = "true";
             }
-            send_msg.data = ss.str();
-            red_flag_.publish(send_msg);
+        } else {
+            find_count = 0;
         }
+
+        red_flag_.publish(send_msg);
     }
 
 
