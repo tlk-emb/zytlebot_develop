@@ -68,6 +68,8 @@ namespace autorace {
         struct v4l2_requestbuffers reqbuf;
         int MAX_BUF_COUNT;
 
+        XmlRpc::XmlRpcValue params;
+        int pcam_frame;
 
         std_msgs::UInt8MultiArrayPtr camdata;
         struct 	v4l2_buffer buf;
@@ -91,6 +93,10 @@ namespace autorace {
 
             n = getNodeHandle();
             pub = n.advertise<std_msgs::UInt8MultiArray>("/pcam/image_array",  640 * 480 * 2);
+            n.getParam("/nodelet_autorace/autorace", params);
+
+            pcam_frame = (int)params["pcam_frame"];
+
 
 
 
@@ -230,7 +236,7 @@ namespace autorace {
             buf.m.planes = planes;
             buf.length = FMT_NUM_PLANES;
 
-            image_pub_ = n.createTimer(ros::Duration(0.1), boost::bind(&NodeletPcam::imageCb, this, _1));
+            image_pub_ = n.createTimer(ros::Duration(1.0 / pcam_frame), boost::bind(&NodeletPcam::imageCb, this, _1));
         }
 
         void imageCb(const ros::TimerEvent& event) {

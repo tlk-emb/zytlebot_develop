@@ -36,7 +36,9 @@ autorace:
   avoid_obstacle_vel: 0.1
   avoid_obstacle_rot: -0.7
   avoid_rot_time: 2.45
-  avoid_rot_straight: 2.7
+  avoid_rot_straight: 1.2
   avoid_straight_time: 4.75
   avoid_before_straight_margin_time: 0.5
   intersection_straight_time: 5.0
+  pcam_frame: 7
+  usbcam_frame: 7

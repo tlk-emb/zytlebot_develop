@@ -51,6 +51,9 @@ namespace autorace {
         struct v4l2_capability caps;
         int got_buffer_num;
 
+        XmlRpc::XmlRpcValue params;
+        int usbcam_frame;
+
         std::chrono::system_clock::time_point  t1, t2, t3, t4, t5, t6, t7;
 
         std_msgs::UInt8MultiArrayPtr camdata;
@@ -72,6 +75,9 @@ namespace autorace {
 
             n = getNodeHandle();
             pub = n.advertise<std_msgs::UInt8MultiArray>("/usbcam/image_array",  640 * 480 * 2);
+
+            n.getParam("/nodelet_autorace/autorace", params);
+            usbcam_frame = (int)params["usbcam_frame"];
 
             fd = open("/dev/video1", O_RDWR, 0);
             if (fd == -1)
@@ -184,7 +190,7 @@ namespace autorace {
 
             camdata = camdatatemp;
 
-            image_pub_ = n.createTimer(ros::Duration(0.1), boost::bind(&NodeletUsbcam::imageCb, this, _1));
+            image_pub_ = n.createTimer(ros::Duration(1.0/usbcam_frame), boost::bind(&NodeletUsbcam::imageCb, this, _1));
         }
 
         void imageCb(const ros::TimerEvent& event) {
