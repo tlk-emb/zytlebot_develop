@@ -29,6 +29,7 @@
 
 #define PI 3.141592653589793
 
+#define DEBUG false
 #define RED_OBJ_SEARCH false
 #define FIGURE_SEARCH false
 
@@ -107,7 +108,6 @@ namespace autorace{
         ros::Publisher signal_search_;
 
         bool red_flag;
-        bool DEBUG;
 
         // 定数宣言
         int BIRDSEYE_LENGTH, CAMERA_WIDTH, CAMERA_HEIGHT;
@@ -217,52 +217,7 @@ namespace autorace{
         void onInit() {
             cout << "Start nodelet" << endl;
 
-            // init end
 
-            ros::NodeHandle& nh_ = getNodeHandle();
-            twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
-            signal_search_ = nh_.advertise<std_msgs::String>("/signal_search", 1);
-
-            setParams(nh_);
-
-            fileLoad();
-
-            setSearchType();
-
-            image_sub_ = nh_.subscribe("/pcam/image_array", 1,
-                                       &NodeletAutorace::imageCb, this);
-
-            red_pub_ = nh_.subscribe("/red_flag", 1,
-                                     &NodeletAutorace::redFlagUpdate, this);
-            /*
-            image_sub_ = it_.subscribe("/camera/rgb/image_raw", 1,
-                                       &NodeletAutorace::imageCb, this);
-            */
-
-            //  処理した挙動をパブリッシュ
-
-        }
-        // デストラクタ
-        ~NodeletAutorace() {
-            twist.linear.x = 0.0;
-            twist.angular.z = 0.0;
-            limitedTwistPub();
-            // 全てのウインドウは破壊
-            cv::destroyAllWindows();
-        }
-
-        void redFlagUpdate(const std_msgs::String &msg) {
-            if (msg.data == "true") {
-                red_flag = true;
-            } else {
-                red_flag = false;
-            }
-
-            cout << msg.data << endl;
-            cout << red_flag << endl;
-        }
-
-        void fileLoad() {
             string filename;
 
             // init start
@@ -298,6 +253,46 @@ namespace autorace{
             for (int i = 0; i < cnt; i++) {
                 std::cout << intersectionDir[i] << std::endl;
             }
+
+            // init end
+
+            ros::NodeHandle& nh_ = getNodeHandle();
+            twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
+            signal_search_ = nh_.advertise<std_msgs::String>("/signal_search", 1);
+
+            setParams(nh_);
+
+            image_sub_ = nh_.subscribe("/pcam/image_array", 1,
+                                       &NodeletAutorace::imageCb, this);
+
+            red_pub_ = nh_.subscribe("/red_flag", 1,
+                                     &NodeletAutorace::redFlagUpdate, this);
+            /*
+            image_sub_ = it_.subscribe("/camera/rgb/image_raw", 1,
+                                       &NodeletAutorace::imageCb, this);
+            */
+
+            //  処理した挙動をパブリッシュ
+
+        }
+        // デストラクタ
+        ~NodeletAutorace() {
+            twist.linear.x = 0.0;
+            twist.angular.z = 0.0;
+            limitedTwistPub();
+            // 全てのウインドウは破壊
+            cv::destroyAllWindows();
+        }
+
+        void redFlagUpdate(const std_msgs::String &msg) {
+            if (msg.data == "true") {
+                red_flag = true;
+            } else {
+                red_flag = false;
+            }
+
+            cout << msg.data << endl;
+            cout << red_flag << endl;
         }
 
     void setParams(ros::NodeHandle& nh_) {
@@ -318,7 +313,8 @@ namespace autorace{
         next_tile_y = (int)params["next_y"];
         now_dir = (int)params["start_dir"];
 
-        DEBUG = (bool)params["autorace_debug"];
+
+
 
         BURGER_MAX_LIN_VEL = (double)params["burger_max_lin_vel"];
         BURGER_MAX_ANG_VEL = (double)params["burger_max_ang_vel"];
@@ -424,6 +420,8 @@ namespace autorace{
         twist.angular.y = 0.0;
         twist.angular.z = 0.0;
         //limitedTwistPub();
+
+        setSearchType();
     }
 
 
@@ -540,11 +538,9 @@ namespace autorace{
                 // bool nowFindRightLaneRightT = intersectionDetection(around_lines, aroundWhiteBinary);
                 // searchRightLaneRightT(nowFindRightLaneRightT);
             } else if (now_phase == "turn_left") {
-                leftTurn();
-                //leftTurnDetect(aroundWhiteBinary);
+                leftTurnDetect(aroundWhiteBinary);
             } else if (now_phase == "turn_right") {
-                determinationRightTurn();
-                // rightTurnDetect(aroundWhiteBinary);
+                rightTurnDetect(aroundWhiteBinary);
             } else if (now_phase == "find_obs") {
                 obstacleAvoidance(road_white_binary, aroundWhiteBinary);
             } else if (now_phase == "intersection_straight") {

@@ -42,4 +42,3 @@ autorace:
   intersection_straight_time: 5.0
   pcam_frame: 7
   usbcam_frame: 7
-  autorace_debug: 0
