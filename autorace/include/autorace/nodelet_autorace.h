@@ -877,7 +877,7 @@ namespace autorace{
         }
         /////////実際に動かす関数//////////////////
 
-        // 5秒ストップ
+        // 秒ストップ
         void crosswalkRedStop() {
             if (red_flag) {
                 ros::Time now = ros::Time::now();
