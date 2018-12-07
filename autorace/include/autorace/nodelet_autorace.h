@@ -1290,15 +1290,16 @@ namespace autorace{
                 // 中点が右過ぎたら左に、左過ぎたら右に曲がる
                 if (detected_line_x > BIRDSEYE_LENGTH * (RUN_LINE + RUN_LINE_MARGIN)) {
                     twist.linear.x += 0.01;
-                    twist.angular.z = -0.1;
+                    twist.angular.z = -0.05;
                 } else if (detected_line_x < BIRDSEYE_LENGTH * (RUN_LINE - RUN_LINE_MARGIN)) {
                     twist.linear.x += 0.01;
-                    twist.angular.z = 0.1;
-                } else if (degree_average < -10 || degree_average > 10) {
+                    twist.angular.z = 0.05;
+                } else {
+                    twist.linear.x += 0.02;
+                }
+                if (degree_average < -10 || degree_average > 10) {
                     // 角度平均が-5以上なら左に曲がる、5以上なら右に曲がる
                     twist.angular.z = degree_average * -0.01;
-                } else {
-                    twist.linear.x += 0.03;
                 }
                 line_lost_cnt = 0;
             } else {
