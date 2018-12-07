@@ -207,7 +207,6 @@ public:
             std::cout << "publish something" << std::endl;
 
             // flagの送信処理
-            std_msgs::String send_msg;
             if (find_flag) {
                 send_msg.data = "true";
             }
