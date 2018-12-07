@@ -837,6 +837,7 @@ public:
             }
         } else {
             changePhase("straight");
+            setNextTile();
         }
     }
 
