@@ -30,7 +30,6 @@
 #define PI 3.141592653589793
 
 #define DEBUG false
-#define RED_OBJ_SEARCH false
 #define FIGURE_SEARCH false
 
 using namespace std;
@@ -138,6 +137,8 @@ namespace autorace{
 
         std::string now_phase;
         std::string nextSearchObject;
+
+        std::string RED_OBJ_SEARCH;
 
         // 発見したオブジェクト（交差点、障害物）のリスト
         std::list <OBJECT> objects;
@@ -338,6 +339,8 @@ namespace autorace{
         AVOID_OBSTACLE_ROT = (double)params["avoid_obstacle_rot"];
         AVOID_ROT_TIME = (double)params["avoid_rot_time"];
 
+        RED_OBJ_SEARCH = (std::string)params["red_obj_search"];
+
 
         AVOID_ROT_STRAIGHT = (double)params["avoid_rot_straight"];
         AVOID_STRAIGHT_TIME = (double)params["avoid_straight_time"];
@@ -523,7 +526,7 @@ namespace autorace{
                     double degree_average = detectLane(left_roi);
                     detected_angle = degree_average;
                     // レーン検出してdetected_lineを更新、平均角度を求める
-                    if (RED_OBJ_SEARCH) findRedObs(birds_eye);
+                    if (RED_OBJ_SEARCH == "true") findRedObs(birds_eye);
                     intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                     searchObject();
                     lineTrace(degree_average, road_white_binary);
