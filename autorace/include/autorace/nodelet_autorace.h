@@ -891,6 +891,7 @@ namespace autorace{
                 }
             } else {
                 changePhase("straight");
+                setNextTile();
             }
         }
 
