@@ -42,7 +42,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <json11.hpp>
+#include <json_lib/json11.hpp>
 
 #define PI 3.141592653589793
 
@@ -693,60 +693,60 @@ namespace autorace{
 
             // 定数をセット
 
-            Hue_l = autorace["hue_l"];
-            Hue_h = autorace["hue_h"];
-            Saturation_l = autorace["saturation_l"];
-            Saturation_h = autorace["saturation_h"];
-            Lightness_l = autorace["lightness_l"];
-            Lightness_h = autorace["lightness_h"];
+            Hue_l = autorace["hue_l"].int_value();
+            Hue_h = autorace["hue_h"].int_value();
+            Saturation_l = autorace["saturation_l"].int_value();
+            Saturation_h = autorace["saturation_h"].int_value();
+            Lightness_l = autorace["lightness_l"].int_value();
+            Lightness_h = autorace["lightness_h"].int_value();
             line_lost_cnt = 0;
-            next_tile_x = autorace["next_x"];
-            next_tile_y = autorace["next_y"];
-            now_dir = autorace["start_dir"];
+            next_tile_x = autorace["next_x"].int_value();
+            next_tile_y = autorace["next_y"].int_value();
+            now_dir = autorace["start_dir"].int_value();
 
 
-            BURGER_MAX_LIN_VEL = autorace["burger_max_lin_vel"];
-            BURGER_MAX_ANG_VEL = autorace["burger_max_ang_vel"];
-            INTERSECTION_STRAIGHT_TIME = autorace["intersection_straight_time"];
+            BURGER_MAX_LIN_VEL = autorace["burger_max_lin_vel"].number_value();
+            BURGER_MAX_ANG_VEL = autorace["burger_max_ang_vel"].number_value();
+            INTERSECTION_STRAIGHT_TIME = autorace["intersection_straight_time"].number_value();
 
-            RIGHT_CURVE_START_LOST_LINE_TIME = autorace["right_curve_start_lost_line_time"];
-            LEFT_CURVE_START_LOST_LINE_TIME = autorace["left_curve_start_lost_line_time"];
-            RIGHT_CURVE_END_MARGIN_TIME = autorace["right_curve_end_margin_time"];
-            RIGHT_CURVE_END_TIME = autorace["right_curve_end_time"];
+            RIGHT_CURVE_START_LOST_LINE_TIME = autorace["right_curve_start_lost_line_time"].number_value();
+            LEFT_CURVE_START_LOST_LINE_TIME = autorace["left_curve_start_lost_line_time"].number_value();
+            RIGHT_CURVE_END_MARGIN_TIME = autorace["right_curve_end_margin_time"].number_value();
+            RIGHT_CURVE_END_TIME = autorace["right_curve_end_time"].number_value();
 
-            RIGHT_CURVE_VEL = autorace["right_curve_vel"];
-            RIGHT_CURVE_ROT = autorace["right_curve_rot"];
+            RIGHT_CURVE_VEL = autorace["right_curve_vel"].number_value();
+            RIGHT_CURVE_ROT = autorace["right_curve_rot"].number_value();
 
-            LEFT_CURVE_END_TIME = autorace["left_curve_end_time"];
-            LEFT_CURVE_END_MARGIN_TIME = autorace["left_curve_end_margin_time"];
+            LEFT_CURVE_END_TIME = autorace["left_curve_end_time"].number_value();
+            LEFT_CURVE_END_MARGIN_TIME = autorace["left_curve_end_margin_time"].number_value();
 
-            LEFT_CURVE_VEL = autorace["left_curve_vel"];
-            LEFT_CURVE_ROT = autorace["left_curve_rot"];
-            LEFT_CURVE_AFTER_ROT = autorace["left_curve_after_rot"];
-            AVOID_OBSTACLE_VEL = autorace["avoid_obstacle_vel"];
-            AVOID_OBSTACLE_ROT = autorace["avoid_obstacle_rot"];
-            AVOID_ROT_TIME = autorace["avoid_rot_time"];
+            LEFT_CURVE_VEL = autorace["left_curve_vel"].number_value();
+            LEFT_CURVE_ROT = autorace["left_curve_rot"].number_value();
+            LEFT_CURVE_AFTER_ROT = autorace["left_curve_after_rot"].number_value();
+            AVOID_OBSTACLE_VEL = autorace["avoid_obstacle_vel"].number_value();
+            AVOID_OBSTACLE_ROT = autorace["avoid_obstacle_rot"].number_value();
+            AVOID_ROT_TIME = autorace["avoid_rot_time"].number_value();
 
-            RED_OBJ_SEARCH = autorace["red_obj_search"];
-            FIGURE_SEARCH = autorace["figure_search"];
+            RED_OBJ_SEARCH = autorace["red_obj_search"].bool_value();
+            FIGURE_SEARCH = autorace["figure_search"].bool_value();
 
 
-            AVOID_ROT_STRAIGHT = autorace["avoid_rot_straight"];
-            AVOID_STRAIGHT_TIME = autorace["avoid_straight_time"];
-            AVOID_BEFORE_STRAIGHT_MARGIN_TIME = autorace["avoid_before_straight_margin_time"];
-            INTERSECTION_PREDICTION_TIME_RATIO = autorace["intersection_prediction_time_ratio"];
-            INTERSECTION_CURVE_START_FLAG_RATIO = autorace["intersection_curve_start_flag_ratio"];
-            CROSSWALK_UNDER_MARGIN = autorace["crosswalk_under_margin"];
-            INTERSECTION_PREDICTION_UNDER_MARGIN = autorace["intersection_prediction_under_margin"];
-            RUN_LINE = autorace["run_line"];
-            RUN_LINE_MARGIN = autorace["run_line_margin"];
-            WIDTH_RATIO = autorace["width_ratio"];
-            HEIGHT_H = autorace["height_h"];
-            HEIGHT_L = autorace["height_l"];
+            AVOID_ROT_STRAIGHT = autorace["avoid_rot_straight"].number_value();
+            AVOID_STRAIGHT_TIME = autorace["avoid_straight_time"].number_value();
+            AVOID_BEFORE_STRAIGHT_MARGIN_TIME = autorace["avoid_before_straight_margin_time"].number_value();
+            INTERSECTION_PREDICTION_TIME_RATIO = autorace["intersection_prediction_time_ratio"].number_value();
+            INTERSECTION_CURVE_START_FLAG_RATIO = autorace["intersection_curve_start_flag_ratio"].number_value();
+            CROSSWALK_UNDER_MARGIN = autorace["crosswalk_under_margin"].number_value();
+            INTERSECTION_PREDICTION_UNDER_MARGIN = autorace["intersection_prediction_under_margin"].number_value();
+            RUN_LINE = autorace["run_line"].number_value();
+            RUN_LINE_MARGIN = autorace["run_line_margin"].number_value();
+            WIDTH_RATIO = autorace["width_ratio"].number_value();
+            HEIGHT_H = autorace["height_h"].int_value();;
+            HEIGHT_L = autorace["height_l"].int_value();;
 
-            BIRDSEYE_LENGTH = autorace["birdseye_length"];
-            CAMERA_WIDTH = autorace["camera_width"];
-            CAMERA_HEIGHT = autorace["camera_height"];
+            BIRDSEYE_LENGTH = autorace["birdseye_length"].int_value();
+            CAMERA_WIDTH = autorace["camera_width"].int_value();
+            CAMERA_HEIGHT = autorace["camera_height"].int_value();
 
             template_right_T = cv::imread((std::string) params["project_folder"] + "/image/right_T.png", 1);
             template_left_T = cv::imread((std::string) params["project_folder"] + "/image/left_T.png", 1);
