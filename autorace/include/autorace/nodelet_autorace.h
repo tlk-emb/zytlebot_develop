@@ -47,7 +47,6 @@
 #define PI 3.141592653589793
 
 #define DEBUG false
-#define FIGURE_SEARCH false
 
 using namespace std;
 using namespace cv;
@@ -670,7 +669,7 @@ namespace autorace{
             ifstream fin((std::string) params["project_folder"] + "autorace.json" );
             if( !fin ){
                 cout << "json load failed" << endl;
-                return 1;
+                return;
             }
 
             stringstream strstream;
@@ -1596,7 +1595,7 @@ namespace autorace{
          *
          */
         void stopForFigure() {
-            phaseStartTime += ros::Duration(ros::Time::now() - cycleTime);
+            phaseStartTime = phaseStartTime + ros::Duration(ros::Time::now() - cycleTime);
 
         }
 
@@ -1914,7 +1913,7 @@ namespace autorace{
             double maxArea = 0;
             for( ; idx >= 0; idx = hierarchy[idx][0] )
             {
-                const vector<Point>& c = contours[idx];
+                vector<Point>& c = contours[idx];
                 double area = fabs(contourArea(Mat(c)));
                 if( area > maxArea )
                 {
@@ -1923,7 +1922,7 @@ namespace autorace{
                 }
             }
             Scalar color( 0, 0, 255 );
-            Rect rect = boundingRect(contours[largestComp]);
+            cv::Rect rect = boundingRect(contours[largestComp]);
 
             if (DEBUG) {
                 cv::rectangle(dst, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.height),
