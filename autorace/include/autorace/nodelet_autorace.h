@@ -476,6 +476,10 @@ namespace autorace{
             bool sw3 = res & (1 << 3);
             printf("%d, %d, %d, %d, %d\n", res, sw0, sw1, sw2, sw3);
 #endif
+            if (!sw0) {
+                cout << "autorace stop"  << endl;
+                return;
+            }
             //void imageCb(const sensor_msgs::ImageConstPtr &msg) {
             // if_zybo
             cv::Mat base_image(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC2);
