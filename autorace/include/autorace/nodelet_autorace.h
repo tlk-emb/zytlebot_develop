@@ -26,6 +26,17 @@
 #include "std_msgs/UInt8MultiArray.h"
 #include "std_msgs/String.h"
 
+// devmem
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <ctype.h>
+#include <termios.h>
+#include <sys/types.h>
+#include <sys/mman.h>
 
 #define PI 3.141592653589793
 
@@ -46,6 +57,11 @@ using namespace cv;
 #define HEIGHT_L 0.8
 */
 
+#define FATAL do { fprintf(stderr, "Error at line %d, file %s (%d) [%s]\n", \
+						   __LINE__, __FILE__, errno, strerror(errno)); exit(1); } while(0)
+
+#define MAP_SIZE 4096UL
+#define MAP_MASK (MAP_SIZE - 1)
 
 
 typedef struct object {
@@ -139,6 +155,7 @@ namespace autorace{
         std::string nextSearchObject;
 
         std::string RED_OBJ_SEARCH;
+        std::string FIGURE_SEARCH;
 
         // 発見したオブジェクト（交差点、障害物）のリスト
         std::list <OBJECT> objects;
@@ -210,12 +227,30 @@ namespace autorace{
         // 歪補正に使う
         cv::Mat MapX, MapY, mapR;
 
+#ifndef DEBUG
+        // devmem
+        int fd;
+        void* map_base;
+        void* virt_addr;
+#endif
+
     public:
         // コンストラクタ
         NodeletAutorace(){
         }
 
         void onInit() {
+
+#ifndef DEBUG
+            off_t physical_address = 0x41210000;
+
+            //initialize
+            if((fd = open("/dev/mem", O_RDWR | O_SYNC)) == -1) FATAL;
+            map_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, physical_address & ~MAP_MASK);
+            if(map_base == (void *) -1) FATAL;
+            virt_addr = map_base + (physical_address & MAP_MASK);
+#endif
+
             cout << "Start nodelet" << endl;
 
 
@@ -296,141 +331,151 @@ namespace autorace{
             cout << red_flag << endl;
         }
 
-    void setParams(ros::NodeHandle& nh_) {
-        nh_.getParam("/nodelet_autorace/autorace", params);
 
-        red_flag = false;
+        void setParams(ros::NodeHandle& nh_) {
+            nh_.getParam("/nodelet_autorace/autorace", params);
 
-        // 定数をセット
+            red_flag = false;
 
-        Hue_l = (int)params["hue_l"];
-        Hue_h = (int)params["hue_h"];
-        Saturation_l = (int)params["saturation_l"];
-        Saturation_h = (int)params["saturation_h"];
-        Lightness_l = (int)params["lightness_l"];
-        Lightness_h = (int)params["lightness_h"];
-        line_lost_cnt = 0;
-        next_tile_x = (int)params["next_x"];
-        next_tile_y = (int)params["next_y"];
-        now_dir = (int)params["start_dir"];
+            // 定数をセット
 
-
-
-
-        BURGER_MAX_LIN_VEL = (double)params["burger_max_lin_vel"];
-        BURGER_MAX_ANG_VEL = (double)params["burger_max_ang_vel"];
-        INTERSECTION_STRAIGHT_TIME =(double)params["intersection_straight_time"];
-
-        RIGHT_CURVE_START_LOST_LINE_TIME = (double)params["right_curve_start_lost_line_time"];
-        LEFT_CURVE_START_LOST_LINE_TIME = (double)params["left_curve_start_lost_line_time"];
-        RIGHT_CURVE_END_MARGIN_TIME = (double)params["right_curve_end_margin_time"];
-        RIGHT_CURVE_END_TIME = (double)params["right_curve_end_time"];
-
-        RIGHT_CURVE_VEL = (double)params["right_curve_vel"];
-        RIGHT_CURVE_ROT = (double)params["right_curve_rot"];
-
-        LEFT_CURVE_END_TIME = (double)params["left_curve_end_time"];
-        LEFT_CURVE_END_MARGIN_TIME = (double)params["left_curve_end_margin_time"];
-
-        LEFT_CURVE_VEL = (double)params["left_curve_vel"];
-        LEFT_CURVE_ROT = (double)params["left_curve_rot"];
-        LEFT_CURVE_AFTER_ROT = (double)params["left_curve_after_rot"];
-        AVOID_OBSTACLE_VEL = (double)params["avoid_obstacle_vel"];
-        AVOID_OBSTACLE_ROT = (double)params["avoid_obstacle_rot"];
-        AVOID_ROT_TIME = (double)params["avoid_rot_time"];
-
-        RED_OBJ_SEARCH = (std::string)params["red_obj_search"];
+            Hue_l = (int) params["hue_l"];
+            Hue_h = (int) params["hue_h"];
+            Saturation_l = (int) params["saturation_l"];
+            Saturation_h = (int) params["saturation_h"];
+            Lightness_l = (int) params["lightness_l"];
+            Lightness_h = (int) params["lightness_h"];
+            line_lost_cnt = 0;
+            next_tile_x = (int) params["next_x"];
+            next_tile_y = (int) params["next_y"];
+            now_dir = (int) params["start_dir"];
 
 
-        AVOID_ROT_STRAIGHT = (double)params["avoid_rot_straight"];
-        AVOID_STRAIGHT_TIME = (double)params["avoid_straight_time"];
-        AVOID_BEFORE_STRAIGHT_MARGIN_TIME = (double)params["avoid_before_straight_margin_time"];
-        INTERSECTION_PREDICTION_TIME_RATIO = (double)params["intersection_prediction_time_ratio"];
-        INTERSECTION_CURVE_START_FLAG_RATIO = (double)params["intersection_curve_start_flag_ratio"];
-        CROSSWALK_UNDER_MARGIN = (double)params["crosswalk_under_margin"];
-        INTERSECTION_PREDICTION_UNDER_MARGIN = (double)params["intersection_prediction_under_margin"];
-        RUN_LINE = (double)params["run_line"];
-        RUN_LINE_MARGIN = (double)params["run_line_margin"];
-        WIDTH_RATIO = (double)params["width_ratio"];
-        HEIGHT_H = (double)params["height_h"];
-        HEIGHT_L  = (double)params["height_l"];
+            BURGER_MAX_LIN_VEL = (double) params["burger_max_lin_vel"];
+            BURGER_MAX_ANG_VEL = (double) params["burger_max_ang_vel"];
+            INTERSECTION_STRAIGHT_TIME = (double) params["intersection_straight_time"];
 
-        BIRDSEYE_LENGTH = (int)params["birdseye_length"];
-        CAMERA_WIDTH = (int)params["camera_width"];
-        CAMERA_HEIGHT = (int)params["camera_height"];
+            RIGHT_CURVE_START_LOST_LINE_TIME = (double) params["right_curve_start_lost_line_time"];
+            LEFT_CURVE_START_LOST_LINE_TIME = (double) params["left_curve_start_lost_line_time"];
+            RIGHT_CURVE_END_MARGIN_TIME = (double) params["right_curve_end_margin_time"];
+            RIGHT_CURVE_END_TIME = (double) params["right_curve_end_time"];
 
-        std::string project_folder = (std::string)params["project_folder"] + "/image/sozai1.png";
+            RIGHT_CURVE_VEL = (double) params["right_curve_vel"];
+            RIGHT_CURVE_ROT = (double) params["right_curve_rot"];
 
-        template_right_T = cv::imread((std::string)params["project_folder"] + "/image/right_T.png", 1);
-        template_left_T = cv::imread((std::string)params["project_folder"] + "/image/left_T.png", 1);
-        template_under_T = cv::imread((std::string)params["project_folder"] + "/image/under_T.png", 1);
-        template_crosswalk = cv::imread((std::string)params["project_folder"] + "/image/crosswalk.png", 1);
-        template_curve = cv::imread((std::string)params["project_folder"] + "/image/curve.png", 1);
-        template_intersection = cv::imread((std::string)params["project_folder"] + "/image/intersection.png", 1);
+            LEFT_CURVE_END_TIME = (double) params["left_curve_end_time"];
+            LEFT_CURVE_END_MARGIN_TIME = (double) params["left_curve_end_margin_time"];
+
+            LEFT_CURVE_VEL = (double) params["left_curve_vel"];
+            LEFT_CURVE_ROT = (double) params["left_curve_rot"];
+            LEFT_CURVE_AFTER_ROT = (double) params["left_curve_after_rot"];
+            AVOID_OBSTACLE_VEL = (double) params["avoid_obstacle_vel"];
+            AVOID_OBSTACLE_ROT = (double) params["avoid_obstacle_rot"];
+            AVOID_ROT_TIME = (double) params["avoid_rot_time"];
+
+            RED_OBJ_SEARCH = (std::string) params["red_obj_search"];
 
 
-        find_left_line = false;
+            AVOID_ROT_STRAIGHT = (double) params["avoid_rot_straight"];
+            AVOID_STRAIGHT_TIME = (double) params["avoid_straight_time"];
+            AVOID_BEFORE_STRAIGHT_MARGIN_TIME = (double) params["avoid_before_straight_margin_time"];
+            INTERSECTION_PREDICTION_TIME_RATIO = (double) params["intersection_prediction_time_ratio"];
+            INTERSECTION_CURVE_START_FLAG_RATIO = (double) params["intersection_curve_start_flag_ratio"];
+            CROSSWALK_UNDER_MARGIN = (double) params["crosswalk_under_margin"];
+            INTERSECTION_PREDICTION_UNDER_MARGIN = (double) params["intersection_prediction_under_margin"];
+            RUN_LINE = (double) params["run_line"];
+            RUN_LINE_MARGIN = (double) params["run_line_margin"];
+            WIDTH_RATIO = (double) params["width_ratio"];
+            HEIGHT_H = (double) params["height_h"];
+            HEIGHT_L = (double) params["height_l"];
+
+            BIRDSEYE_LENGTH = (int) params["birdseye_length"];
+            CAMERA_WIDTH = (int) params["camera_width"];
+            CAMERA_HEIGHT = (int) params["camera_height"];
+
+            std::string project_folder = (std::string) params["project_folder"] + "/image/sozai1.png";
+
+            template_right_T = cv::imread((std::string) params["project_folder"] + "/image/right_T.png", 1);
+            template_left_T = cv::imread((std::string) params["project_folder"] + "/image/left_T.png", 1);
+            template_under_T = cv::imread((std::string) params["project_folder"] + "/image/under_T.png", 1);
+            template_crosswalk = cv::imread((std::string) params["project_folder"] + "/image/crosswalk.png", 1);
+            template_curve = cv::imread((std::string) params["project_folder"] + "/image/curve.png", 1);
+            template_intersection = cv::imread((std::string) params["project_folder"] + "/image/intersection.png", 1);
 
 
-        detected_line_x = 0;
-
-        // start時間を初期化
-        phaseStartTime = ros::Time::now();
-        line_lost_time = ros::Time::now();
-        tileUpdatedTime = ros::Time::now();
-        cycleTime = ros::Time::now();
-
-        now_phase = "straight";
+            find_left_line = false;
 
 
-        reachBottomRightLaneRightT = false;
-        reachBottomRightLaneLeftT = false;
-        reachBottomLeftLaneLeftT = false;
-        reachBottomLeftLaneStraightEnd = false;
-        nowIntersectionCount = 0;
-        phaseRunMileage = 0;
-        detected_angle = 0;
-        intersectionDetectionFlag = false;
-        curveAfterCrosswalk = false;
-        intersectionAfterCrosswalk = false;
-        crosswalkFlag = false;
-        findFigureFlag = false;
+            detected_line_x = 0;
 
-        searchType == "";
+            // start時間を初期化
+            phaseStartTime = ros::Time::now();
+            line_lost_time = ros::Time::now();
+            tileUpdatedTime = ros::Time::now();
+            cycleTime = ros::Time::now();
 
-        acceleration = false;
-        // 歪補正の前計算
-        mapR = cv::Mat::eye(3, 3, CV_64F);
-        cv::initUndistortRectifyMap(camera_mtx, camera_dist, mapR, camera_mtx, cv::Size(640, 480), CV_32FC1, MapX, MapY);
+            now_phase = "straight";
 
 
-        // BGS
-        bgs = cv::createBackgroundSubtractorMOG2();
-        bgs->setVarThreshold(10);
+            reachBottomRightLaneRightT = false;
+            reachBottomRightLaneLeftT = false;
+            reachBottomLeftLaneLeftT = false;
+            reachBottomLeftLaneStraightEnd = false;
+            nowIntersectionCount = 0;
+            phaseRunMileage = 0;
+            detected_angle = 0;
+            intersectionDetectionFlag = false;
+            curveAfterCrosswalk = false;
+            intersectionAfterCrosswalk = false;
+            crosswalkFlag = false;
+            findFigureFlag = false;
 
-        // カラー画像をサブスクライブ
-        // if_zybo
+            searchType == "";
+
+            acceleration = false;
+            // 歪補正の前計算
+            mapR = cv::Mat::eye(3, 3, CV_64F);
+            cv::initUndistortRectifyMap(camera_mtx, camera_dist, mapR, camera_mtx, cv::Size(640, 480), CV_32FC1, MapX,
+                                        MapY);
 
 
-        //image_pub_ = it_.advertise("/image_topic", 1);
+            // BGS
+            bgs = cv::createBackgroundSubtractorMOG2();
+            bgs->setVarThreshold(10);
 
-        // twist初期化
-        //geometry_msgs::Twist twist;
-        twist.linear.x = 0.0;
-        twist.linear.y = 0.0;
-        twist.linear.z = 0.0;
-        twist.angular.x = 0.0;
-        twist.angular.y = 0.0;
-        twist.angular.z = 0.0;
-        //limitedTwistPub();
+            // カラー画像をサブスクライブ
+            // if_zybo
 
-        setSearchType();
-    }
+
+            //image_pub_ = it_.advertise("/image_topic", 1);
+
+            // twist初期化
+            //geometry_msgs::Twist twist;
+            twist.linear.x = 0.0;
+            twist.linear.y = 0.0;
+            twist.linear.z = 0.0;
+            twist.angular.x = 0.0;
+            twist.angular.y = 0.0;
+            twist.angular.z = 0.0;
+            //limitedTwistPub();
+
+            setSearchType();
+        }
 
 
         // コールバック関数
         // if zybo
         void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
+#ifndef DEBUG
+            unsigned long read_result = *((unsigned char *) virt_addr);
+            int res = (int)read_result;
+
+            bool sw0 = res & 1;
+            bool sw1 = res & (1 << 1);
+            bool sw2 = res & (1 << 2);
+            bool sw3 = res & (1 << 3);
+            printf("%d, %d, %d, %d, %d\n", res, sw0, sw1, sw2, sw3);
+#endif
             //void imageCb(const sensor_msgs::ImageConstPtr &msg) {
             // if_zybo
             cv::Mat base_image(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC2);
@@ -515,51 +560,61 @@ namespace autorace{
             // ---------------controller----------------
             updateObject();
 
-            if (!findFigureFlag) {
+            if (findFigureFlag) {
+                // 人形検知
+                detectSkin(caliblated);
 
-            }
-            if (now_phase == "straight") {
-                ros::Time now = ros::Time::now();
-                if (now - line_lost_time > ros::Duration(2.0) && map_data[next_tile_x][next_tile_y][0] == 8) {
-                    changePhase("intersection_straight");
-                } else {
+                twist.linear.x = 0.0;
+                twist.angular.z = 0.0;
+                limitedTwistPub();
+                // phaseStartTimeにcycleTimeを加算することによって、なんらかの動作途中であっても影響をなくす
+                phaseStartTime += ros::Time::now().toSec() - cycleTime.toSec();
+                std::cout << phaseStartTime << std::endl;
+            } else {
+                // TODO 今はテストで絶対やってる
+                detectSkin(caliblated);
+                if (now_phase == "straight") {
+                    ros::Time now = ros::Time::now();
+                    if (now - line_lost_time > ros::Duration(2.0) && map_data[next_tile_x][next_tile_y][0] == 8) {
+                        changePhase("intersection_straight");
+                    } else {
+                        double degree_average = detectLane(left_roi);
+                        detected_angle = degree_average;
+                        // レーン検出してdetected_lineを更新、平均角度を求める
+                        if (RED_OBJ_SEARCH == "true") findRedObs(birds_eye);
+                        intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
+                        searchObject();
+                        lineTrace(degree_average, road_white_binary);
+                        limitedTwistPub();
+                    }
+                } else if (now_phase == "trace_right_curve") {
+                    rightCurveTrace(road_white_binary);
+                } else if (now_phase == "search_line") {
                     double degree_average = detectLane(left_roi);
+                    searchLine();
+                } else if (now_phase == "search_right_lane_right_T") {
+                    // bool nowFindRightLaneRightT = intersectionDetection(around_lines, aroundWhiteBinary);
+                    // searchRightLaneRightT(nowFindRightLaneRightT);
+                } else if (now_phase == "turn_left") {
+                    leftTurn();
+                    // leftTurnDetect(aroundWhiteBinary);
+                } else if (now_phase == "turn_right") {
+                    determinationRightTurn();
+                    // rightTurnDetect(aroundWhiteBinary);
+                } else if (now_phase == "find_obs") {
+                    obstacleAvoidance(road_white_binary, aroundWhiteBinary);
+                } else if (now_phase == "intersection_straight") {
+                    double degree_average = intersectionStraight(road_clone);
                     detected_angle = degree_average;
-                    // レーン検出してdetected_lineを更新、平均角度を求める
-                    if (RED_OBJ_SEARCH == "true") findRedObs(birds_eye);
                     intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                     searchObject();
-                    lineTrace(degree_average, road_white_binary);
                     limitedTwistPub();
+                } else if (now_phase == "crosswalk") {
+                    crosswalkRedStop();
                 }
-            } else if (now_phase == "trace_right_curve") {
-                rightCurveTrace(road_white_binary);
-            } else if (now_phase == "search_line") {
-                double degree_average = detectLane(left_roi);
-                searchLine();
-            } else if (now_phase == "search_right_lane_right_T") {
-                // bool nowFindRightLaneRightT = intersectionDetection(around_lines, aroundWhiteBinary);
-                // searchRightLaneRightT(nowFindRightLaneRightT);
-            } else if (now_phase == "turn_left") {
-                leftTurn();
-                // leftTurnDetect(aroundWhiteBinary);
-            } else if (now_phase == "turn_right") {
-                determinationRightTurn();
-                // rightTurnDetect(aroundWhiteBinary);
-            } else if (now_phase == "find_obs") {
-                obstacleAvoidance(road_white_binary, aroundWhiteBinary);
-            } else if (now_phase == "intersection_straight") {
-                double degree_average = intersectionStraight(road_clone);
-                detected_angle = degree_average;
-                intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
-                searchObject();
-                limitedTwistPub();
-            } else if (now_phase == "crosswalk") {
-                crosswalkRedStop();
             }
 
             // ---------------controller end----------------
-
             std::cout << "走行距離 : " << mileage << " 合計 " << phaseRunMileage << std::endl;
             std::cout << "実行時間 : " << ros::Time::now().toSec() - processingStartTime.toSec() << "s" << std::endl;
             std::cout << "周期時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
@@ -1615,7 +1670,7 @@ namespace autorace{
             // cv::bitwise_and(redRoi, redRoi, red_image, red_mask1 + red_mask2);
 
             int fractionNum = cv::countNonZero(red_mask1 + red_mask2);
-            cout << "fractionNum :" << fractionNum << endl;
+            cout << "SEARCH RED OBJECT !!!!! fractionNum :" << fractionNum << endl;
             if (fractionNum > 500) {
                 int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
                 int tileType = map_data[next_tile_y][next_tile_x][0];
@@ -1627,7 +1682,7 @@ namespace autorace{
             }
         }
 
-        void testSkin(cv::Mat image){
+        void detectSkin(const cv::Mat& image){
             cv::Mat skin_mask, skin_image, skin_hsv_image, result_image;
             // cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * 0.2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
             cv::cvtColor(image, skin_hsv_image, CV_BGR2HSV);
@@ -1643,9 +1698,11 @@ namespace autorace{
 
             // BGS
             bgs->apply(image, bgmask);
-            refineSegments(image, skin_mask, out_frame);
-            imshow("bgs output", out_frame);
-            cv::moveWindow("bgs output", 1200, 20);
+            skinSegments(image, skin_mask, out_frame);
+            if(DEBUG) {
+                imshow("bgs output", out_frame);
+                cv::moveWindow("bgs output", 1200, 20);
+            }
         }
 
         /*
@@ -1653,10 +1710,14 @@ namespace autorace{
          * ただし、次が横断歩道かつ横断歩道フラグがonかつ、青信号が検知されていない時は、左辺rect.xがdetected_xより左でも、底辺rect.y+rect.heightが一定値以下なら止まる
         */
         void judgeFigure(cv::Rect figureRect, double maxArea){
-            //if (figureRect.x > detected_line_x && figureRect.y + figureRect.height < );
+            if (maxArea > 1000 && figureRect.x > BIRDSEYE_LENGTH * (1 + RUN_LINE) && figureRect.y + figureRect.height > BIRDSEYE_LENGTH * 0.6) {
+                findFigureFlag = true;
+            } else {
+                findFigureFlag = false;
+            }
         }
 
-        static void refineSegments(const Mat& img, Mat& mask, Mat& dst)
+        static void skinSegments(const Mat& img, Mat& mask, Mat& dst)
         {
             int niters = 2;
             vector<vector<Point> > contours;
@@ -1685,10 +1746,14 @@ namespace autorace{
             }
             Scalar color( 0, 0, 255 );
             Rect rect = boundingRect(contours[largestComp]);
-            //Box box = cv.boxPoints(rect);
-            cv::rectangle(dst, cv::Point(rect.x,rect.y), cv::Point(rect.x + rect.width, rect.height), cv::Scalar(0,0,200), 3, 4);
-            drawContours( dst, contours, largestComp, color, FILLED, LINE_8, hierarchy );
 
+            if (DEBUG) {
+                cv::rectangle(dst, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.height),
+                              cv::Scalar(0, 0, 200), 3, 4);
+                drawContours(dst, contours, largestComp, color, FILLED, LINE_8, hierarchy);
+            }
+
+            judgeFigure(rect, maxArea);
             /*
              * TODO 傾きでうまいことしたい
             src_pnt[0] = cv::Point(width * (0.5 - width_ratio), height * height_h);
