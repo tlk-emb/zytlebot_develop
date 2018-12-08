@@ -752,8 +752,8 @@ namespace autorace{
             RUN_LINE = autorace["run_line"].number_value();
             RUN_LINE_MARGIN = autorace["run_line_margin"].number_value();
             WIDTH_RATIO = autorace["width_ratio"].number_value();
-            HEIGHT_H = autorace["height_h"].int_value();;
-            HEIGHT_L = autorace["height_l"].int_value();;
+            HEIGHT_H = autorace["height_h"].number_value();;
+            HEIGHT_L = autorace["height_l"].number_value();;
 
             BIRDSEYE_LENGTH = autorace["birdseye_length"].int_value();
             CAMERA_WIDTH = autorace["camera_width"].int_value();
