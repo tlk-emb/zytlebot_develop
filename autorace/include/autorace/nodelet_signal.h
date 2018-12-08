@@ -34,10 +34,10 @@ map<int, vector<pair<int, int> > > mp[2];
 map<int, vector<pair<int, int> > > original_mp[2];
 set<int> widthkind[2];
 
-int sx_min = 999;
-int sy_min = 999;
-int ex_max = -1;
-int ey_max = -1;
+int sx_min[2] = {999, 999};
+int sy_min[2] = {999, 999};
+int ex_max[2] = {-1, -1};
+int ey_max[2] = {-1, -1};
 #define WINDOW_WIDTH 64
 #define WINDOW_HEIGHT 32
 bool imgout = false;
@@ -59,10 +59,10 @@ void check_window(){
         int ex = w[i][1][1];
         // cv::Mat cropped(frame, cv::Rect(sx, sy, ex - sx, ey - sy));
         widthkind[0].insert(ex-sx);
-        sx_min = min(sx_min, sx);
-        sy_min = min(sy_min, sy);
-        ex_max = max(ex_max, ex);
-        ey_max = max(ey_max, ey);
+        sx_min[0] = min(sx_min[0], sx);
+        sy_min[0] = min(sy_min[0], sy);
+        ex_max[0] = max(ex_max[0], ex);
+        ey_max[0] = max(ey_max[0], ey);
     }
 
     for(int i = 0; i < window_num; i++){
@@ -73,8 +73,8 @@ void check_window(){
         int ex = w[i][1][1];
 
         int original_width = ex - sx;
-        int ssy = (int)((float) (sy - sy_min) * (float)WINDOW_WIDTH/original_width);
-        int ssx = (int)((float) (sx - sx_min) * (float)WINDOW_WIDTH/original_width);
+        int ssy = (int)((float) (sy - sy_min[0]) * (float)WINDOW_WIDTH/original_width);
+        int ssx = (int)((float) (sx - sx_min[0]) * (float)WINDOW_WIDTH/original_width);
         mp[0][original_width].push_back(make_pair(ssx, ssy));
         //store original coordinate
         original_mp[0][original_width].push_back(make_pair(sx, sy));
@@ -111,12 +111,16 @@ void check_window2(std::string project_folder){
     int cross_signal_height_upper = params["cross_signal_height_upper"].int_value();
     int cross_signal_height_step = params["cross_signal_height_step"].int_value();
 
+    sx_min[1] = cross_signal_range_sx;
+    sy_min[1] = cross_signal_range_sy;
     for(int height = 20; height < cross_signal_height_upper; height+=cross_signal_height_step){
         int width = height * 2;
         widthkind[1].insert(width);
         for(int y = cross_signal_range_sy; y <= cross_signal_range_ey; y+=cross_signal_y_step){
             for(int x = cross_signal_range_sx; x <= cross_signal_range_ex; x+=cross_signal_x_step){
                 int original_width = width;
+                ex_max[1] = max(ex_max[1], x + width);
+                ey_max[1] = max(ey_max[1], y + height);
                 int ssy = (int)((float) (y - cross_signal_range_sy) * (float)WINDOW_WIDTH/original_width);
                 int ssx = (int)((float) (x - cross_signal_range_sx) * (float)WINDOW_WIDTH/original_width);
                 mp[1][original_width].push_back(make_pair(ssx, ssy));
@@ -353,7 +357,7 @@ namespace autorace{
 
             t1 = std::chrono::system_clock::now();
             //1. crop use frame
-            Mat rgb(frame, cv::Rect(sx_min, sy_min, ex_max - sx_min, ey_max - sy_min));
+            Mat rgb(frame, cv::Rect(sx_min[mode], sy_min[mode], ex_max[mode] - sx_min[mode], ey_max[mode] - sy_min[mode]));
             //2. convert to HLS image
             Mat hls;
             cv::cvtColor(rgb, hls, CV_BGR2HSV);
