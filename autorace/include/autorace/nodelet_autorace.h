@@ -291,7 +291,7 @@ namespace autorace{
             // init end
 
             twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
-            signal_search_ = nh_.advertise<std_msgs::String>("/signal_search", 1);
+            signal_search_ = nh_.advertise<std_msgs::String>("/signal_search_type", 1);
 
             // パラメータセット
             if (DEBUG) {
@@ -1098,13 +1098,17 @@ namespace autorace{
             // タイルと入射角の差　どの方角からタイルに侵入するかを判別
             int differenceDirection = (tileRot - now_dir + 4) % 4;
 
-            std_msgs::String send_do_signal_search;
-            send_do_signal_search.data = "false";
+            std_msgs::String how_signal_search;
+            how_signal_search.data = "-1";
 
-            if (tileType == 2 || tileType == 5 || tileType == 6) {
-                // 横断歩道
+            if (tileType == 6) {
+                // 外周横断歩道
                 searchType = "crosswalk";
-                send_do_signal_search.data = "true";
+                how_signal_search.data = "0";
+            } else if (tileType == 2 || tileType == 5) {
+                // 交差点横断歩道
+                searchType = "crosswalk";
+                how_signal_search.data = "1";
             } else if (tileType == 7) { // T字路
                 if(differenceDirection == 3) {
                     // T字路に左から入る
@@ -1122,7 +1126,7 @@ namespace autorace{
                 searchType = "";
             }
 
-            signal_search_.publish(send_do_signal_search);
+            signal_search_.publish(how_signal_search);
         }
         /////////実際に動かす関数//////////////////
 

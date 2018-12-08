@@ -138,7 +138,7 @@ namespace autorace{
 
 
         int window_mode;
-        bool do_search;
+        int how_search; // -1で探さない 0で外周 1で交差点
         bool find_flag;
         int find_count;
 
@@ -157,7 +157,7 @@ namespace autorace{
 
         void onInit() {
             window_mode = 0;
-            do_search = true;
+            how_search = 0;
             cout << "nodelet_signal start" << endl;
 
             XmlRpc::XmlRpcValue ros_params;
@@ -173,7 +173,7 @@ namespace autorace{
             image_sub_ = nh_.subscribe("/usbcam/image_array", 1,
                                        &NodeletSignal::imageCb, this);
 
-            signal_search_ = nh_.subscribe("/signal_search", 1, &NodeletSignal::signalSearchCb, this);
+            signal_search_ = nh_.subscribe("/signal_search_type", 1, &NodeletSignal::signalSearchCb, this);
 
             red_flag_ = nh_.advertise<std_msgs::String>("/red_flag", 1);
 
@@ -185,20 +185,23 @@ namespace autorace{
         }
 
         void signalSearchCb(const std_msgs::String &msg) {
-            if (msg.data == "true") {
-                do_search = true;
+            if (msg.data == "-1") {
+                how_search = -1;
+            } else if (msg.data == "0") {
+                how_search = 0;
             } else {
-                do_search = false;
+                how_search = 1;
             }
-
-            cout << "search signal = " << msg.data << "!!!!!!" << endl;
         }
 
         // コールバック関数
         void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
+
+            cout << "search signal Type = " << how_search << "!!!!!!" << endl;
+
             std_msgs::String send_msg;
             send_msg.data = "false";
-            if (do_search) {
+            if (how_search != -1) {
                 cout << "searching signal!!!!" << endl;
                 cv::Mat baseImage(480, 640, CV_8UC2);
                 cv::Mat dstimg(480, 640, CV_8UC2);
@@ -206,6 +209,8 @@ namespace autorace{
                 cv::cvtColor(baseImage, dstimg, cv::COLOR_YUV2BGR_YUYV);
 
                 // TODO receive window_mode
+                if (how_search == 0) window_mode = 0;
+                if (how_search == 1) window_mode = 1;
                 // window_mode = 0 or 1
                 // TODO show receive window mode
 
