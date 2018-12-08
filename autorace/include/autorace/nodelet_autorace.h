@@ -334,7 +334,7 @@ namespace autorace{
         }
 
 
-        void setParams(auto) {
+        void setParams() {
 
             red_flag = false;
 
@@ -589,11 +589,10 @@ namespace autorace{
                 twist.angular.z = 0.0;
                 limitedTwistPub();
                 // phaseStartTimeにcycleTimeを加算することによって、なんらかの動作途中であっても影響をなくす
-                phaseStartTime += ros::Time::now().toSec() - cycleTime.toSec();
+                phaseStartTime = phaseStartTime + ros::Duration(ros::Time::now() - cycleTime);
                 std::cout << phaseStartTime << std::endl;
             } else {
-                // TODO 今はテストで絶対やってる
-                detectSkin(caliblated);
+                if (FIGURE_SEARCH) detectSkin(caliblated);
                 if (now_phase == "straight") {
                     ros::Time now = ros::Time::now();
                     if (now - line_lost_time > ros::Duration(2.0) && map_data[next_tile_x][next_tile_y][0] == 8) {
@@ -666,11 +665,14 @@ namespace autorace{
     ////////////////関数//////////////////
 
         void loadJson() {
-            ifstream fin((std::string) params["project_folder"] + "autorace.json" );
+            cout << "json before load" << endl;
+            ifstream fin((std::string) params["project_folder"] + "/autorace.json" );
             if( !fin ){
                 cout << "json load failed" << endl;
                 return;
             }
+
+            cout << "json loaded" << endl;
 
             stringstream strstream;
             strstream << fin.rdbuf();
@@ -692,6 +694,8 @@ namespace autorace{
 
             // 定数をセット
 
+            cout << "json parse start" << endl;
+
             Hue_l = autorace["hue_l"].int_value();
             Hue_h = autorace["hue_h"].int_value();
             Saturation_l = autorace["saturation_l"].int_value();
@@ -703,6 +707,8 @@ namespace autorace{
             next_tile_y = autorace["next_y"].int_value();
             now_dir = autorace["start_dir"].int_value();
 
+
+            cout << "json parse 2" << endl;
 
             BURGER_MAX_LIN_VEL = autorace["burger_max_lin_vel"].number_value();
             BURGER_MAX_ANG_VEL = autorace["burger_max_ang_vel"].number_value();
@@ -729,6 +735,7 @@ namespace autorace{
             RED_OBJ_SEARCH = autorace["red_obj_search"].bool_value();
             FIGURE_SEARCH = autorace["figure_search"].bool_value();
 
+            cout << "json parse 3" << endl;
 
             AVOID_ROT_STRAIGHT = autorace["avoid_rot_straight"].number_value();
             AVOID_STRAIGHT_TIME = autorace["avoid_straight_time"].number_value();
@@ -746,6 +753,8 @@ namespace autorace{
             BIRDSEYE_LENGTH = autorace["birdseye_length"].int_value();
             CAMERA_WIDTH = autorace["camera_width"].int_value();
             CAMERA_HEIGHT = autorace["camera_height"].int_value();
+
+            cout << "json parse end" << endl;
 
             template_right_T = cv::imread((std::string) params["project_folder"] + "/image/right_T.png", 1);
             template_left_T = cv::imread((std::string) params["project_folder"] + "/image/left_T.png", 1);
@@ -1882,19 +1891,9 @@ namespace autorace{
             }
         }
 
-        /*
-         * TODO 人形を判別した長方形範囲rectの左辺rect.xが推定路線より右かつ、底辺rect.y+rect.heightが一定値以上なら止まるようにフラグを立てる
-         * ただし、次が横断歩道かつ横断歩道フラグがonかつ、青信号が検知されていない時は、左辺rect.xがdetected_xより左でも、底辺rect.y+rect.heightが一定値以下なら止まる
-        */
-        void judgeFigure(cv::Rect figureRect, double maxArea){
-            if (maxArea > 1000 && figureRect.x > BIRDSEYE_LENGTH * (1 + RUN_LINE) && figureRect.y + figureRect.height > BIRDSEYE_LENGTH * 0.6) {
-                findFigureFlag = true;
-            } else {
-                findFigureFlag = false;
-            }
-        }
 
-        static void skinSegments(const Mat& img, Mat& mask, Mat& dst)
+
+        void skinSegments(const Mat& img, Mat& mask, Mat& dst)
         {
             int niters = 2;
             vector<vector<Point> > contours;
@@ -1922,20 +1921,23 @@ namespace autorace{
                 }
             }
             Scalar color( 0, 0, 255 );
-            cv::Rect rect = boundingRect(contours[largestComp]);
+            cv::Rect figureRect = boundingRect(contours[largestComp]);
 
             if (DEBUG) {
-                cv::rectangle(dst, cv::Point(rect.x, rect.y), cv::Point(rect.x + rect.width, rect.height),
+                cv::rectangle(dst, cv::Point(figureRect.x, figureRect.y), cv::Point(figureRect.x + figureRect.width, figureRect.height),
                               cv::Scalar(0, 0, 200), 3, 4);
                 drawContours(dst, contours, largestComp, color, FILLED, LINE_8, hierarchy);
             }
 
-            judgeFigure(rect, maxArea);
             /*
-             * TODO 傾きでうまいことしたい
-            src_pnt[0] = cv::Point(width * (0.5 - width_ratio), height * height_h);
-            src_pnt[1] = cv::Point(0, height * height_l);
-             */
+         * TODO 人形を判別した長方形範囲rectの左辺rect.xが推定路線より右かつ、底辺rect.y+rect.heightが一定値以上なら止まるようにフラグを立てる
+         * ただし、次が横断歩道かつ横断歩道フラグがonかつ、青信号が検知されていない時は、左辺rect.xがdetected_xより左でも、底辺rect.y+rect.heightが一定値以下なら止まる
+        */
+            if (maxArea > 1000 && figureRect.x > BIRDSEYE_LENGTH * (1 + RUN_LINE) && figureRect.y + figureRect.height > BIRDSEYE_LENGTH * 0.6) {
+                findFigureFlag = true;
+            } else {
+                findFigureFlag = false;
+            }
 
             //imshow("temp", temp);
             // cv::moveWindow("temp", 1200, 20);
