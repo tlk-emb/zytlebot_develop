@@ -38,6 +38,12 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 
+// JSON読み込み
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <json11.hpp>
+
 #define PI 3.141592653589793
 
 #define DEBUG false
@@ -154,8 +160,8 @@ namespace autorace{
         std::string now_phase;
         std::string nextSearchObject;
 
-        std::string RED_OBJ_SEARCH;
-        std::string FIGURE_SEARCH;
+        bool RED_OBJ_SEARCH;
+        bool FIGURE_SEARCH;
 
         // 発見したオブジェクト（交差点、障害物）のリスト
         std::list <OBJECT> objects;
@@ -227,6 +233,8 @@ namespace autorace{
         // 歪補正に使う
         cv::Mat MapX, MapY, mapR;
 
+        std::string project_folder;
+
 #ifndef DEBUG
         // devmem
         int fd;
@@ -241,6 +249,9 @@ namespace autorace{
 
         void onInit() {
 
+            ros::NodeHandle& nh_ = getNodeHandle();
+            nh_.getParam("/nodelet_autorace/autorace", params);
+
 #ifndef DEBUG
             off_t physical_address = 0x41210000;
 
@@ -254,27 +265,15 @@ namespace autorace{
             cout << "Start nodelet" << endl;
 
 
-            string filename;
-
             // init start
             // キャリブレーションファイル読み込み
-            if (DEBUG) {
-                filename = "/home/sou/catkin_ws/src/autorace/calibration.yml";
-            } else {
-                filename = "/home/ubuntu/catkin_ws/src/autorace/calibration.yml";
-            }
-            cv::FileStorage fs(filename, cv::FileStorage::READ);
+            cv::FileStorage fs((std::string) params["project_folder"] + "/calibration.yml", cv::FileStorage::READ);
             fs["mtx"] >> camera_mtx;
             fs["dist"] >> camera_dist;
             fs.release();
 
             // 進行方向読み込み
-            if (DEBUG) {
-                filename = "/home/sou/catkin_ws/src/autorace/honsen_dir.txt";
-            } else {
-                filename = "/home/ubuntu/catkin_ws/src/autorace/honsen_dir.txt";
-            }
-            std::ifstream ifs(filename);
+            std::ifstream ifs((std::string) params["project_folder"] + "/honsen_dir.txt");
             std::string str;
             if (ifs.fail()) {
                 std::cerr << "text file load fail" << std::endl;
@@ -292,11 +291,15 @@ namespace autorace{
 
             // init end
 
-            ros::NodeHandle& nh_ = getNodeHandle();
             twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
             signal_search_ = nh_.advertise<std_msgs::String>("/signal_search", 1);
 
-            setParams(nh_);
+            // パラメータセット
+            if (DEBUG) {
+                setParams();
+            } else {
+                loadJson();
+            }
 
             image_sub_ = nh_.subscribe("/pcam/image_array", 1,
                                        &NodeletAutorace::imageCb, this);
@@ -332,8 +335,7 @@ namespace autorace{
         }
 
 
-        void setParams(ros::NodeHandle& nh_) {
-            nh_.getParam("/nodelet_autorace/autorace", params);
+        void setParams(auto) {
 
             red_flag = false;
 
@@ -373,7 +375,19 @@ namespace autorace{
             AVOID_OBSTACLE_ROT = (double) params["avoid_obstacle_rot"];
             AVOID_ROT_TIME = (double) params["avoid_rot_time"];
 
-            RED_OBJ_SEARCH = (std::string) params["red_obj_search"];
+            std::string temp = (std::string) params["red_obj_search"];
+            if (temp == "true"){
+                RED_OBJ_SEARCH = true;
+            } else {
+                RED_OBJ_SEARCH = false;
+            }
+
+            temp = (std::string) params["figure_search"];
+            if (temp == "true"){
+                FIGURE_SEARCH = true;
+            } else {
+                FIGURE_SEARCH = false;
+            }
 
 
             AVOID_ROT_STRAIGHT = (double) params["avoid_rot_straight"];
@@ -392,8 +406,6 @@ namespace autorace{
             BIRDSEYE_LENGTH = (int) params["birdseye_length"];
             CAMERA_WIDTH = (int) params["camera_width"];
             CAMERA_HEIGHT = (int) params["camera_height"];
-
-            std::string project_folder = (std::string) params["project_folder"] + "/image/sozai1.png";
 
             template_right_T = cv::imread((std::string) params["project_folder"] + "/image/right_T.png", 1);
             template_left_T = cv::imread((std::string) params["project_folder"] + "/image/left_T.png", 1);
@@ -475,11 +487,17 @@ namespace autorace{
             bool sw2 = res & (1 << 2);
             bool sw3 = res & (1 << 3);
             printf("%d, %d, %d, %d, %d\n", res, sw0, sw1, sw2, sw3);
-#endif
+
             if (!sw0) {
                 cout << "autorace stop"  << endl;
                 return;
             }
+
+            if (sw4) {
+                cout << "load Json!" << endl;
+                loadJson();
+            }
+#endif
             //void imageCb(const sensor_msgs::ImageConstPtr &msg) {
             // if_zybo
             cv::Mat base_image(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC2);
@@ -585,7 +603,7 @@ namespace autorace{
                         double degree_average = detectLane(left_roi);
                         detected_angle = degree_average;
                         // レーン検出してdetected_lineを更新、平均角度を求める
-                        if (RED_OBJ_SEARCH == "true") findRedObs(birds_eye);
+                        if (RED_OBJ_SEARCH) findRedObs(birds_eye);
                         intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                         searchObject();
                         lineTrace(degree_average, road_white_binary);
@@ -647,6 +665,162 @@ namespace autorace{
         }
 
     ////////////////関数//////////////////
+
+        void loadJson() {
+            ifstream fin((std::string) params["project_folder"] + "autorace.json" );
+            if( !fin ){
+                cout << "json load failed" << endl;
+                return 1;
+            }
+
+            stringstream strstream;
+            strstream << fin.rdbuf();
+            fin.close();
+            string jsonstr(strstream.str());
+
+            string err;
+            auto json = json11::Json::parse(jsonstr, err);
+            auto autorace = json["autorace"];
+
+            /*
+            int next_y = autorace["next_y"].int_value();
+            bool red_obj_search = autorace["red_obj_search"].bool_value();
+            double burger_max_lin_vel = autorace["burger_max_lin_vel"].number_value();
+             */
+
+            // params set
+            red_flag = false;
+
+            // 定数をセット
+
+            Hue_l = autorace["hue_l"];
+            Hue_h = autorace["hue_h"];
+            Saturation_l = autorace["saturation_l"];
+            Saturation_h = autorace["saturation_h"];
+            Lightness_l = autorace["lightness_l"];
+            Lightness_h = autorace["lightness_h"];
+            line_lost_cnt = 0;
+            next_tile_x = autorace["next_x"];
+            next_tile_y = autorace["next_y"];
+            now_dir = autorace["start_dir"];
+
+
+            BURGER_MAX_LIN_VEL = autorace["burger_max_lin_vel"];
+            BURGER_MAX_ANG_VEL = autorace["burger_max_ang_vel"];
+            INTERSECTION_STRAIGHT_TIME = autorace["intersection_straight_time"];
+
+            RIGHT_CURVE_START_LOST_LINE_TIME = autorace["right_curve_start_lost_line_time"];
+            LEFT_CURVE_START_LOST_LINE_TIME = autorace["left_curve_start_lost_line_time"];
+            RIGHT_CURVE_END_MARGIN_TIME = autorace["right_curve_end_margin_time"];
+            RIGHT_CURVE_END_TIME = autorace["right_curve_end_time"];
+
+            RIGHT_CURVE_VEL = autorace["right_curve_vel"];
+            RIGHT_CURVE_ROT = autorace["right_curve_rot"];
+
+            LEFT_CURVE_END_TIME = autorace["left_curve_end_time"];
+            LEFT_CURVE_END_MARGIN_TIME = autorace["left_curve_end_margin_time"];
+
+            LEFT_CURVE_VEL = autorace["left_curve_vel"];
+            LEFT_CURVE_ROT = autorace["left_curve_rot"];
+            LEFT_CURVE_AFTER_ROT = autorace["left_curve_after_rot"];
+            AVOID_OBSTACLE_VEL = autorace["avoid_obstacle_vel"];
+            AVOID_OBSTACLE_ROT = autorace["avoid_obstacle_rot"];
+            AVOID_ROT_TIME = autorace["avoid_rot_time"];
+
+            RED_OBJ_SEARCH = autorace["red_obj_search"];
+            FIGURE_SEARCH = autorace["figure_search"];
+
+
+            AVOID_ROT_STRAIGHT = autorace["avoid_rot_straight"];
+            AVOID_STRAIGHT_TIME = autorace["avoid_straight_time"];
+            AVOID_BEFORE_STRAIGHT_MARGIN_TIME = autorace["avoid_before_straight_margin_time"];
+            INTERSECTION_PREDICTION_TIME_RATIO = autorace["intersection_prediction_time_ratio"];
+            INTERSECTION_CURVE_START_FLAG_RATIO = autorace["intersection_curve_start_flag_ratio"];
+            CROSSWALK_UNDER_MARGIN = autorace["crosswalk_under_margin"];
+            INTERSECTION_PREDICTION_UNDER_MARGIN = autorace["intersection_prediction_under_margin"];
+            RUN_LINE = autorace["run_line"];
+            RUN_LINE_MARGIN = autorace["run_line_margin"];
+            WIDTH_RATIO = autorace["width_ratio"];
+            HEIGHT_H = autorace["height_h"];
+            HEIGHT_L = autorace["height_l"];
+
+            BIRDSEYE_LENGTH = autorace["birdseye_length"];
+            CAMERA_WIDTH = autorace["camera_width"];
+            CAMERA_HEIGHT = autorace["camera_height"];
+
+            template_right_T = cv::imread((std::string) params["project_folder"] + "/image/right_T.png", 1);
+            template_left_T = cv::imread((std::string) params["project_folder"] + "/image/left_T.png", 1);
+            template_under_T = cv::imread((std::string) params["project_folder"] + "/image/under_T.png", 1);
+            template_crosswalk = cv::imread((std::string) params["project_folder"] + "/image/crosswalk.png", 1);
+            template_curve = cv::imread((std::string) params["project_folder"] + "/image/curve.png", 1);
+            template_intersection = cv::imread((std::string) params["project_folder"] + "/image/intersection.png", 1);
+
+
+            find_left_line = false;
+
+
+            detected_line_x = 0;
+
+            // start時間を初期化
+            phaseStartTime = ros::Time::now();
+            line_lost_time = ros::Time::now();
+            tileUpdatedTime = ros::Time::now();
+            cycleTime = ros::Time::now();
+
+            now_phase = "straight";
+
+
+            reachBottomRightLaneRightT = false;
+            reachBottomRightLaneLeftT = false;
+            reachBottomLeftLaneLeftT = false;
+            reachBottomLeftLaneStraightEnd = false;
+            nowIntersectionCount = 0;
+            phaseRunMileage = 0;
+            detected_angle = 0;
+            intersectionDetectionFlag = false;
+            curveAfterCrosswalk = false;
+            intersectionAfterCrosswalk = false;
+            crosswalkFlag = false;
+            findFigureFlag = false;
+
+            searchType == "";
+
+            acceleration = false;
+            // 歪補正の前計算
+            mapR = cv::Mat::eye(3, 3, CV_64F);
+            cv::initUndistortRectifyMap(camera_mtx, camera_dist, mapR, camera_mtx, cv::Size(640, 480), CV_32FC1, MapX,
+                                        MapY);
+
+
+            // BGS
+            bgs = cv::createBackgroundSubtractorMOG2();
+            bgs->setVarThreshold(10);
+
+            // カラー画像をサブスクライブ
+            // if_zybo
+
+
+            //image_pub_ = it_.advertise("/image_topic", 1);
+
+            // twist初期化
+            //geometry_msgs::Twist twist;
+            twist.linear.x = 0.0;
+            twist.linear.y = 0.0;
+            twist.linear.z = 0.0;
+            twist.angular.x = 0.0;
+            twist.angular.y = 0.0;
+            twist.angular.z = 0.0;
+            //limitedTwistPub();
+
+            setSearchType();
+
+            // param set end
+            cout << "Hue_h" << Hue_h << endl;
+            cout << "red_obj_search" << RED_OBJ_SEARCH << endl;
+            cout << "burager_max_lin_vel" << BURGER_MAX_LIN_VEL << endl;
+        }
+
+
         // phaseの変更ともろもろの値の初期化
         void changePhase(std::string next_phase) {
             std::cout << "change phase!" << next_phase << std::endl;
