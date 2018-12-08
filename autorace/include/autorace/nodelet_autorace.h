@@ -234,7 +234,7 @@ namespace autorace{
 
         std::string project_folder;
 
-#ifndef DEBUG
+#if !DEBUG
         // devmem
         int fd;
         void* map_base;
@@ -251,7 +251,7 @@ namespace autorace{
             ros::NodeHandle& nh_ = getNodeHandle();
             nh_.getParam("/nodelet_autorace/autorace", params);
 
-#ifndef DEBUG
+#if !DEBUG
             off_t physical_address = 0x41210000;
 
             //initialize
@@ -477,7 +477,7 @@ namespace autorace{
         // コールバック関数
         // if zybo
         void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
-#ifndef DEBUG
+#if !DEBUG
             unsigned long read_result = *((unsigned char *) virt_addr);
             int res = (int)read_result;
 
@@ -487,15 +487,20 @@ namespace autorace{
             bool sw3 = res & (1 << 3);
             printf("%d, %d, %d, %d, %d\n", res, sw0, sw1, sw2, sw3);
 
+            if (sw3) {
+                cout << "load Json!" << endl;
+                loadJson();
+            }
+
             if (!sw0) {
+                twist.linear.x = 0.0;
+                twist.angular.z = 0.0;
+                limitedTwistPub();
                 cout << "autorace stop"  << endl;
                 return;
             }
 
-            if (sw4) {
-                cout << "load Json!" << endl;
-                loadJson();
-            }
+
 #endif
             //void imageCb(const sensor_msgs::ImageConstPtr &msg) {
             // if_zybo
@@ -601,7 +606,7 @@ namespace autorace{
                         double degree_average = detectLane(left_roi);
                         detected_angle = degree_average;
                         // レーン検出してdetected_lineを更新、平均角度を求める
-                        if (RED_OBJ_SEARCH) findRedObs(birds_eye);
+                        findRedObs(birds_eye);
                         intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                         searchObject();
                         lineTrace(degree_average, road_white_binary);
@@ -1857,7 +1862,7 @@ namespace autorace{
 
             int fractionNum = cv::countNonZero(red_mask1 + red_mask2);
             cout << "SEARCH RED OBJECT !!!!! fractionNum :" << fractionNum << endl;
-            if (fractionNum > 500) {
+            if (fractionNum > 500 && RED_OBJ_SEARCH) {
                 int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
                 int tileType = map_data[next_tile_y][next_tile_x][0];
 
