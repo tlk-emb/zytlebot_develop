@@ -1903,9 +1903,11 @@ namespace autorace{
             if (fractionNum > 500 && RED_OBJ_SEARCH) {
                 int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
                 int tileType = map_data[next_tile_y][next_tile_x][0];
+                cout << "TileType = " << tileType << "!  nextDirection = " << nextDirection << endl;
 
                 if (tileType == 7 && nextDirection == 0) {
                     setNextTile(); // T字路直進の場合スキップ
+
                 }
                 changePhase("find_obs");
             }
