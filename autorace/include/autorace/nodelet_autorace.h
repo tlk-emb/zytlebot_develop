@@ -288,8 +288,8 @@ namespace autorace{
             signal_search_ = nh_.advertise<std_msgs::String>("/signal_search_type", 1);
 
             // パラメータセット
-            loadJson();
-            
+            setParam();
+
 
             image_sub_ = nh_.subscribe("/pcam/image_array", 1,
                                        &NodeletAutorace::imageCb, this);
@@ -324,147 +324,6 @@ namespace autorace{
             cout << red_flag << endl;
         }
 
-
-        void setParams() {
-
-            red_flag = false;
-
-            // 定数をセット
-
-            Hue_l = (int) params["hue_l"];
-            Hue_h = (int) params["hue_h"];
-            Saturation_l = (int) params["saturation_l"];
-            Saturation_h = (int) params["saturation_h"];
-            Lightness_l = (int) params["lightness_l"];
-            Lightness_h = (int) params["lightness_h"];
-            line_lost_cnt = 0;
-            next_tile_x = (int) params["next_x"];
-            next_tile_y = (int) params["next_y"];
-            now_dir = (int) params["start_dir"];
-
-
-            BURGER_MAX_LIN_VEL = (double) params["burger_max_lin_vel"];
-            BURGER_MAX_ANG_VEL = (double) params["burger_max_ang_vel"];
-            INTERSECTION_STRAIGHT_TIME = (double) params["intersection_straight_time"];
-
-            RIGHT_CURVE_START_LOST_LINE_TIME = (double) params["right_curve_start_lost_line_time"];
-            LEFT_CURVE_START_LOST_LINE_TIME = (double) params["left_curve_start_lost_line_time"];
-            RIGHT_CURVE_END_MARGIN_TIME = (double) params["right_curve_end_margin_time"];
-            RIGHT_CURVE_END_TIME = (double) params["right_curve_end_time"];
-
-            RIGHT_CURVE_VEL = (double) params["right_curve_vel"];
-            RIGHT_CURVE_ROT = (double) params["right_curve_rot"];
-
-            LEFT_CURVE_END_TIME = (double) params["left_curve_end_time"];
-            LEFT_CURVE_END_MARGIN_TIME = (double) params["left_curve_end_margin_time"];
-
-            LEFT_CURVE_VEL = (double) params["left_curve_vel"];
-            LEFT_CURVE_ROT = (double) params["left_curve_rot"];
-            LEFT_CURVE_AFTER_ROT = (double) params["left_curve_after_rot"];
-            AVOID_OBSTACLE_VEL = (double) params["avoid_obstacle_vel"];
-            AVOID_OBSTACLE_ROT = (double) params["avoid_obstacle_rot"];
-            AVOID_ROT_TIME = (double) params["avoid_rot_time"];
-
-            std::string temp = (std::string) params["red_obj_search"];
-            if (temp == "true"){
-                RED_OBJ_SEARCH = true;
-            } else {
-                RED_OBJ_SEARCH = false;
-            }
-
-            temp = (std::string) params["figure_search"];
-            if (temp == "true"){
-                FIGURE_SEARCH = true;
-            } else {
-                FIGURE_SEARCH = false;
-            }
-
-
-            AVOID_ROT_STRAIGHT = (double) params["avoid_rot_straight"];
-            AVOID_STRAIGHT_TIME = (double) params["avoid_straight_time"];
-            AVOID_BEFORE_STRAIGHT_MARGIN_TIME = (double) params["avoid_before_straight_margin_time"];
-            INTERSECTION_PREDICTION_TIME_RATIO = (double) params["intersection_prediction_time_ratio"];
-            INTERSECTION_CURVE_START_FLAG_RATIO = (double) params["intersection_curve_start_flag_ratio"];
-            CROSSWALK_UNDER_MARGIN = (double) params["crosswalk_under_margin"];
-            INTERSECTION_PREDICTION_UNDER_MARGIN = (double) params["intersection_prediction_under_margin"];
-            RUN_LINE = (double) params["run_line"];
-            RUN_LINE_MARGIN = (double) params["run_line_margin"];
-            WIDTH_RATIO = (double) params["width_ratio"];
-            HEIGHT_H = (double) params["height_h"];
-            HEIGHT_L = (double) params["height_l"];
-
-            BIRDSEYE_LENGTH = (int) params["birdseye_length"];
-            CAMERA_WIDTH = (int) params["camera_width"];
-            CAMERA_HEIGHT = (int) params["camera_height"];
-
-            template_right_T = cv::imread((std::string) params["project_folder"] + "/image/right_T.png", 1);
-            template_left_T = cv::imread((std::string) params["project_folder"] + "/image/left_T.png", 1);
-            template_under_T = cv::imread((std::string) params["project_folder"] + "/image/under_T.png", 1);
-            template_crosswalk = cv::imread((std::string) params["project_folder"] + "/image/crosswalk.png", 1);
-            template_curve = cv::imread((std::string) params["project_folder"] + "/image/curve.png", 1);
-            template_intersection = cv::imread((std::string) params["project_folder"] + "/image/intersection.png", 1);
-
-
-            find_left_line = false;
-
-
-            detected_line_x = 0;
-
-            // start時間を初期化
-            phaseStartTime = ros::Time::now();
-            line_lost_time = ros::Time::now();
-            tileUpdatedTime = ros::Time::now();
-            cycleTime = ros::Time::now();
-
-            now_phase = "straight";
-
-
-            reachBottomRightLaneRightT = false;
-            reachBottomRightLaneLeftT = false;
-            reachBottomLeftLaneLeftT = false;
-            reachBottomLeftLaneStraightEnd = false;
-            nowIntersectionCount = 0;
-            phaseRunMileage = 0;
-            detected_angle = 0;
-            intersectionDetectionFlag = false;
-            curveAfterCrosswalk = false;
-            intersectionAfterCrosswalk = false;
-            crosswalkFlag = false;
-            findFigureFlag = false;
-
-            searchType == "";
-
-            acceleration = false;
-            // 歪補正の前計算
-            mapR = cv::Mat::eye(3, 3, CV_64F);
-            cv::initUndistortRectifyMap(camera_mtx, camera_dist, mapR, camera_mtx, cv::Size(640, 480), CV_32FC1, MapX,
-                                        MapY);
-
-
-            // BGS
-            bgs = cv::createBackgroundSubtractorMOG2();
-            bgs->setVarThreshold(10);
-
-            // カラー画像をサブスクライブ
-            // if_zybo
-
-
-            //image_pub_ = it_.advertise("/image_topic", 1);
-
-            // twist初期化
-            //geometry_msgs::Twist twist;
-            twist.linear.x = 0.0;
-            twist.linear.y = 0.0;
-            twist.linear.z = 0.0;
-            twist.angular.x = 0.0;
-            twist.angular.y = 0.0;
-            twist.angular.z = 0.0;
-            //limitedTwistPub();
-
-            setSearchType();
-        }
-
-
         // コールバック関数
         // if zybo
         void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
@@ -496,7 +355,7 @@ namespace autorace{
 
             if (sw3 && !(sw3_flag)) {
                 cout << "load Json!" << endl;
-                loadJson();
+                setParam();
                 sw3_flag = true;
             } else {
                 sw3_flag = false;
@@ -679,7 +538,7 @@ namespace autorace{
 
     ////////////////関数//////////////////
 
-        void loadJson() {
+        void setParam() {
             // 進行方向も初期化読み込み
             std::ifstream ifs((std::string) params["project_folder"] + "/honsen_dir.txt");
             std::string str;
