@@ -299,7 +299,7 @@ namespace autorace{
             //initialize
             map_base2 = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, physical_address2 & ~MAP_MASK);
             if(map_base2 == (void *) -1) FATAL;
-            virt_addr = map_base2 + (physical_address2 & MAP_MASK);
+            virt_addr2 = map_base2 + (physical_address2 & MAP_MASK);
 #endif
 
             cout << "Start nodelet" << endl;
@@ -336,15 +336,15 @@ namespace autorace{
             // LEDの点灯
 
 #if !DEBUG
-            ros::Timer left_led_timer = nh.createTimer(ros::Duration(0.5), leftLedCb);
-            ros::Timer right_led_timer = nh.createTimer(ros::Duration(0.5), RightLedCb);
+            ros::Timer left_led_timer = nh_.createTimer(ros::Duration(0.5), boost::bind(&NodeletAutorace::leftLedCb, this, _1));
+            ros::Timer right_led_timer = nh_.createTimer(ros::Duration(0.5), boost::bind(&NodeletAutorace::RightLedCb, this, _1));
 #endif
             //
 
         }
 
 #if !DEBUG
-        void leftLedCb() {
+        void leftLedCb(const ros::TimerEvent& event) {
             if (!(Left_LED_before) && Left_LED) {
                 *((unsigned char *) virt_addr2) = (char)0x01;
                 Left_LED_before = true;
@@ -356,7 +356,7 @@ namespace autorace{
             }
         }
 
-        void RightLedCb() {
+        void RightLedCb(const ros::TimerEvent& event) {
             if (!(Right_LED_before) && Right_LED) {
                 *((unsigned char *) virt_addr2) = (char)0x02;
                 Right_LED_before = true;
@@ -440,8 +440,6 @@ namespace autorace{
                 cout << "autorace stop"  << endl;
                 return;
             }
-
-
 #endif
             //void imageCb(const sensor_msgs::ImageConstPtr &msg) {
             // if_zybo
@@ -1868,7 +1866,6 @@ namespace autorace{
 
                 if (tileType == 7 && nextDirection == 0) {
                     setNextTile(); // T字路直進の場合スキップ
-
                 }
                 changePhase("find_obs");
             }
@@ -1984,6 +1981,7 @@ namespace autorace{
 
             double maxVal;
             cv::Mat result;
+            bool find = false;
 
             if (doSearch) {
                 // 傾きを元に元画像を回転
@@ -2001,8 +1999,23 @@ namespace autorace{
                 if (maxVal > 0.75) {
                     addObject(searchType, searchLeftX + maxPt.x  + template_right_T.cols / 2, maxPt.y + template_right_T.rows / 2);
                     std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
+                    find = true;
                 }
             }
+
+            // LEDのための処理
+            int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
+            int tileType = map_data[next_tile_y][next_tile_x][0];
+            if (find) {
+                if (!(searchType == "crosswalk" && (tileType == 6)) && searchType != "") {
+                    if (nextDirection == 1) {
+                        Left_LED = true;
+                    } else if (nextDirection == 3) {
+                        Right_LED = true;
+                    }
+                }
+            }
+            // もし、次曲がるなら、それに応じてLEDを点灯
         }
 
         void testTemplateMatching(cv::Mat aroundWhiteBinary, cv::Mat template_img, cv::Scalar color) {
