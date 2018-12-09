@@ -236,6 +236,22 @@ namespace autorace{
 
         std::string project_folder;
 
+        //////////////// LEDのためのフラグ/////////////////
+        bool find_intersection;
+        bool do_curve;
+
+        // 点滅させるか
+        bool Left_LED;
+        bool Right_LED;
+        bool Brake_LED;
+
+        // 点滅させるために、前状態を持っておくための変数
+        bool Left_LED_before;
+        bool Right_LED_before;
+
+        double before_twist_x;
+
+        //////////
 
 
 #if !DEBUG
@@ -243,9 +259,13 @@ namespace autorace{
         int fd;
         void* map_base;
         void* virt_addr;
+        void* virt_addr2;
         bool sw1_flag;
         bool sw2_flag;
         bool sw3_flag;
+
+        // LED
+        void* map_base2;
 #endif
 
     public:
@@ -261,6 +281,8 @@ namespace autorace{
 #if !DEBUG
             off_t physical_address = 0x41210000;
 
+            // Switch
+
             //initialize
             if((fd = open("/dev/mem", O_RDWR | O_SYNC)) == -1) FATAL;
             map_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, physical_address & ~MAP_MASK);
@@ -270,6 +292,14 @@ namespace autorace{
             sw2_flag = false;
             sw3_flag = false;
 
+
+            off_t physical_address2 = 0x41240000;
+            // LED
+
+            //initialize
+            map_base2 = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, physical_address2 & ~MAP_MASK);
+            if(map_base2 == (void *) -1) FATAL;
+            virt_addr = map_base2 + (physical_address2 & MAP_MASK);
 #endif
 
             cout << "Start nodelet" << endl;
@@ -303,12 +333,58 @@ namespace autorace{
 
             //  処理した挙動をパブリッシュ
 
+            // LEDの点灯
+
+#if !DEBUG
+            ros::Timer left_led_timer = nh.createTimer(ros::Duration(0.5), leftLedCb);
+            ros::Timer right_led_timer = nh.createTimer(ros::Duration(0.5), RightLedCb);
+#endif
+            //
+
         }
+
+#if !DEBUG
+        void leftLedCb() {
+            if (!(Left_LED_before) && Left_LED) {
+                unsigned long read_result = *((unsigned char *) virt_addr2);
+                int res = (int) read_result;
+
+                res & 1 = 1;
+            } else {
+                unsigned long read_result = *((unsigned char *) virt_addr2);
+                int res = (int) read_result;
+
+                res & 1 = 0;
+            }
+        }
+
+        void RightLedCb() {
+            if (!(Right_LED_before) && Right_LED) {
+                unsigned long read_result = *((unsigned char *) virt_addr2);
+                int res = (int) read_result;
+
+                res & 1 = 1;
+            } else {
+                unsigned long read_result = *((unsigned char *) virt_addr2);
+                int res = (int) read_result;
+
+                res & 1 = 0;
+            }
+        }
+#endif
+
+
         // デストラクタ
         ~NodeletAutorace() {
+#if !DEBUG
+            if(munmap(map_base, MAP_SIZE) == -1) FATAL;
+            close(fd);
+
+            if(munmap(map_base2, MAP_SIZE) == -1) FATAL;
+#endif
             twist.linear.x = 0.0;
             twist.angular.z = 0.0;
-            limitedTwistPub();
+            twist_pub.publish(twist);
             // 全てのウインドウは破壊
             cv::destroyAllWindows();
         }
@@ -699,9 +775,19 @@ namespace autorace{
             bgs = cv::createBackgroundSubtractorMOG2();
             bgs->setVarThreshold(10);
 
-            // カラー画像をサブスクライブ
-            // if_zybo
 
+            // LEDのためのフラグ
+            find_intersection = false;
+            do_curve = false ;
+
+            Left_LED = false;
+            RIGHT_LED = false;
+            BRAKE_LED = false;
+
+            Left_LED_before = false;
+            Right_LED_before = false;
+            before_twist_x = 0.0;
+            ////////////////
 
             //image_pub_ = it_.advertise("/image_topic", 1);
 
@@ -1460,6 +1546,14 @@ namespace autorace{
             if (twist.linear.x < 0) twist.linear.x = 0;
             if (twist.angular.z > BURGER_MAX_ANG_VEL) twist.angular.z = BURGER_MAX_ANG_VEL;
             if ((twist.angular.z < 0 - BURGER_MAX_ANG_VEL)) twist.angular.z = 0 - BURGER_MAX_ANG_VEL;
+
+            // LEDのための処理
+            if (before_twist_x >= twist.linear.x) {
+
+            } else {
+
+            }
+
             twist_pub.publish(twist);
         }
 
