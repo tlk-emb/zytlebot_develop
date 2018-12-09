@@ -1172,10 +1172,12 @@ namespace autorace{
                 limitedTwistPub();
                 if (now - phaseStartTime > ros::Duration(20.0)) {
                     changePhase("straight");
+                    twist.linear.x = 1.0;
                     setNextTile();
                 }
             } else {
                 changePhase("straight");
+                twist.linear.x = 1.0;
                 setNextTile();
             }
         }
