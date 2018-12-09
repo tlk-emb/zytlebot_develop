@@ -282,34 +282,14 @@ namespace autorace{
             fs["dist"] >> camera_dist;
             fs.release();
 
-            // 進行方向読み込み
-            std::ifstream ifs((std::string) params["project_folder"] + "/honsen_dir.txt");
-            std::string str;
-            if (ifs.fail()) {
-                std::cerr << "text file load fail" << std::endl;
-            }
-            int cnt = 0;
-            while (getline(ifs, str)) {
-                // std::cout << "[" << str << "]" << std::endl;
-                int num = std::atoi(str.c_str());
-                // std::cout << num << std::endl;
-                intersectionDir[cnt++] = num;
-            }
-            for (int i = 0; i < cnt; i++) {
-                std::cout << intersectionDir[i] << std::endl;
-            }
-
             // init end
 
             twist_pub = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1000);
             signal_search_ = nh_.advertise<std_msgs::String>("/signal_search_type", 1);
 
             // パラメータセット
-            if (DEBUG) {
-                setParams();
-            } else {
-                loadJson();
-            }
+            loadJson();
+            
 
             image_sub_ = nh_.subscribe("/pcam/image_array", 1,
                                        &NodeletAutorace::imageCb, this);
@@ -700,6 +680,25 @@ namespace autorace{
     ////////////////関数//////////////////
 
         void loadJson() {
+            // 進行方向も初期化読み込み
+            std::ifstream ifs((std::string) params["project_folder"] + "/honsen_dir.txt");
+            std::string str;
+            if (ifs.fail()) {
+                std::cerr << "text file load fail" << std::endl;
+            }
+            int cnt = 0;
+            while (getline(ifs, str)) {
+                // std::cout << "[" << str << "]" << std::endl;
+                int num = std::atoi(str.c_str());
+                // std::cout << num << std::endl;
+                intersectionDir[cnt++] = num;
+            }
+            for (int i = 0; i < cnt; i++) {
+                std::cout << intersectionDir[i] << std::endl;
+            }
+
+
+
             cout << "json before load" << endl;
             ifstream fin((std::string) params["project_folder"] + "/autorace.json" );
             if( !fin ){
@@ -872,12 +871,12 @@ namespace autorace{
             // 前のphaseの結果によって変更される値を処理する
             now_phase = next_phase;
             phaseStartTime = ros::Time::now();
-            phaseRunMileage = 0;
             resetFlag();
         }
 
         void resetFlag() {
             objects.clear();
+            phaseRunMileage = 0;
             curve_detect_cnt = 0;
             reachBottomLeftLaneLeftT = false;
             reachBottomRightLaneLeftT = false;
