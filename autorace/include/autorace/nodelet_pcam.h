@@ -258,7 +258,7 @@ namespace autorace {
                     std::cout << "Retrieving Frame" << std::endl;
                     return;
                 }
-                std::cout << "buf.index " << buf.index << std::endl;
+                // std::cout << "buf.index " << buf.index << std::endl;
                 // Connect buffer to queue for next capture.
                 if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
                     std::cout << "VIDIOC_QBUF" << std::endl;
@@ -272,7 +272,7 @@ namespace autorace {
                 for (int j = 0; j < num_planes; j++) {
                     memcpy(&(camdata->data[0]), buffers[buf.index].start[j], WIDTH * HEIGHT * 2);
                     pub.publish(camdata);
-                    ROS_INFO("I published something!");
+                    ROS_INFO("Pcam Published something!");
                 }
             }
         }
