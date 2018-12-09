@@ -346,29 +346,25 @@ namespace autorace{
 #if !DEBUG
         void leftLedCb() {
             if (!(Left_LED_before) && Left_LED) {
-                unsigned long read_result = *((unsigned char *) virt_addr2);
-                int res = (int) read_result;
-
-                res & 1 = 1;
+                *((unsigned char *) virt_addr2) = (char)0x01;
+                Left_LED_before = true;
+            } else if (!(Right_LED) && !(Brake_LED)) {
+                *((unsigned char *) virt_addr2) = (char)0x00;
+                Left_LED_before = false;
             } else {
-                unsigned long read_result = *((unsigned char *) virt_addr2);
-                int res = (int) read_result;
-
-                res & 1 = 0;
+                Left_LED_before = false;
             }
         }
 
         void RightLedCb() {
             if (!(Right_LED_before) && Right_LED) {
-                unsigned long read_result = *((unsigned char *) virt_addr2);
-                int res = (int) read_result;
-
-                res & 1 = 1;
+                *((unsigned char *) virt_addr2) = (char)0x02;
+                Right_LED_before = true;
+            } else if (!(Left_LED) && !(Brake_LED)) {
+                *((unsigned char *) virt_addr2) = (char)0x00;
+                Right_LED_before = false;
             } else {
-                unsigned long read_result = *((unsigned char *) virt_addr2);
-                int res = (int) read_result;
-
-                res & 1 = 0;
+                Right_LED_before = false;
             }
         }
 #endif
@@ -781,8 +777,8 @@ namespace autorace{
             do_curve = false ;
 
             Left_LED = false;
-            RIGHT_LED = false;
-            BRAKE_LED = false;
+            Right_LED = false;
+            Brake_LED = false;
 
             Left_LED_before = false;
             Right_LED_before = false;
@@ -830,6 +826,9 @@ namespace autorace{
             reachBottomLeftLaneStraightEnd = false;
             crosswalkFlag = false;
             line_lost_time = ros::Time::now();
+
+            Right_LED = false;
+            Left_LED = false;
         }
 
         // 左車線について
@@ -1161,6 +1160,7 @@ namespace autorace{
         // 決め打ちで左カーブ
         // 入射時の速度でカーブ時間を変更
         void leftTurn() {
+            Right_LED = true; // LED                Right_LED_before = false;
             twist.linear.x = LEFT_CURVE_VEL;
             twist.angular.z = LEFT_CURVE_ROT;
             ros::Time now = ros::Time::now();
@@ -1295,6 +1295,7 @@ namespace autorace{
 
         // 決め打ちで右カーブ
         void determinationRightTurn() {
+            Right_LED = true;
             twist.linear.x = RIGHT_CURVE_VEL;
             twist.angular.z = RIGHT_CURVE_ROT;
             ros::Time now = ros::Time::now();
@@ -1388,6 +1389,7 @@ namespace autorace{
             if (now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME)) {
                 twist.linear.x = AVOID_OBSTACLE_VEL;
                 twist.angular.z = AVOID_OBSTACLE_ROT;
+                Right_LED = true; // LED
             } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME + AVOID_ROT_STRAIGHT))
             { // 右車線に向けて直進
                 twist.linear.x = AVOID_OBSTACLE_VEL;
@@ -1411,6 +1413,8 @@ namespace autorace{
                 twist.linear.x = 0.2;
                 twist.angular.z = -1 * twist.angular.z;
                 limitedTwistPub();
+                Right_LED = false;
+                Left_LED = true; // LED
             } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 3 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME))
             { // 左車線に向けて回転
                 twist.linear.x = AVOID_OBSTACLE_VEL;
@@ -1548,11 +1552,16 @@ namespace autorace{
             if ((twist.angular.z < 0 - BURGER_MAX_ANG_VEL)) twist.angular.z = 0 - BURGER_MAX_ANG_VEL;
 
             // LEDのための処理
-            if (before_twist_x >= twist.linear.x) {
-
-            } else {
-
+            if (!(Right_LED) && !(Left_LED)) {
+                if (before_twist_x >= twist.linear.x) {
+                    *((unsigned char *) virt_addr2) = (char) 0xc0;
+                    Brake_LED = true;
+                } else{
+                    *((unsigned char *) virt_addr2) = (char) 0x00;
+                    Brake_LED = false;
+                }
             }
+            before_twist_x = twist.linear.x;
 
             twist_pub.publish(twist);
         }
