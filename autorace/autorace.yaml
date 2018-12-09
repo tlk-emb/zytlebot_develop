@@ -1,4 +1,4 @@
-autorace:
+autorace: # this is yaml file !!
   next_x: 0
   next_y: 6
   start_dir: 1

@@ -203,6 +203,8 @@ namespace autorace{
         bool curveAfterCrosswalk;
         bool intersectionAfterCrosswalk;
 
+        string SW_CHANGE_PHASE;
+
         double mileage;
         double phaseRunMileage;
         double detected_angle;
@@ -234,11 +236,16 @@ namespace autorace{
 
         std::string project_folder;
 
+
+
 #if !DEBUG
         // devmem
         int fd;
         void* map_base;
         void* virt_addr;
+        bool sw1_flag;
+        bool sw2_flag;
+        bool sw3_flag;
 #endif
 
     public:
@@ -259,6 +266,10 @@ namespace autorace{
             map_base = mmap(0, MAP_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, physical_address & ~MAP_MASK);
             if(map_base == (void *) -1) FATAL;
             virt_addr = map_base + (physical_address & MAP_MASK);
+            sw1_flag = false;
+            sw2_flag = false;
+            sw3_flag = false;
+
 #endif
 
             cout << "Start nodelet" << endl;
@@ -487,9 +498,28 @@ namespace autorace{
             bool sw3 = res & (1 << 3);
             printf("%d, %d, %d, %d, %d\n", res, sw0, sw1, sw2, sw3);
 
-            if (sw3) {
+            if (sw1 && !(sw1_flag)) {
+                cout << "スイッチでSet next Tile!" << endl;
+                setNextTile();
+                sw1_flag = true;
+            } else {
+                sw1_flag = false;
+            }
+
+            if (sw2 && !(sw2_flag)) {
+                cout << "フェーズ変更！"<< SW_CHANGE_PHASE << endl;
+                changePhase(SW_CHANGE_PHASE);
+                sw2_flag = true;
+            } else {
+                sw2_flag = false;
+            }
+
+            if (sw3 && !(sw3_flag)) {
                 cout << "load Json!" << endl;
                 loadJson();
+                sw3_flag = true;
+            } else {
+                sw3_flag = false;
             }
 
             if (!sw0) {
@@ -758,6 +788,8 @@ namespace autorace{
             BIRDSEYE_LENGTH = autorace["birdseye_length"].int_value();
             CAMERA_WIDTH = autorace["camera_width"].int_value();
             CAMERA_HEIGHT = autorace["camera_height"].int_value();
+
+            SW_CHANGE_PHASE = autorace["sw_change_phase"].string_value();
 
             cout << "json parse end" << endl;
 
