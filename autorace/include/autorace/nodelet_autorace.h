@@ -346,6 +346,7 @@ namespace autorace{
 #if !DEBUG
         void leftLedCb(const ros::TimerEvent& event) {
             if (!(Left_LED_before) && Left_LED) {
+                cout << "Left LED Lightning!!!!!!" << endl;
                 *((unsigned char *) virt_addr2) = (char)0x01;
                 Left_LED_before = true;
             } else if (!(Right_LED) && !(Brake_LED)) {
@@ -357,6 +358,7 @@ namespace autorace{
         }
 
         void RightLedCb(const ros::TimerEvent& event) {
+            cout << "Right LED Lightning!!!!!!" << endl;
             if (!(Right_LED_before) && Right_LED) {
                 *((unsigned char *) virt_addr2) = (char)0x02;
                 Right_LED_before = true;
@@ -518,7 +520,7 @@ namespace autorace{
                     break;
             }
 
-            std::cout << "次の目的地 : x = " << next_tile_x << " y =  " << next_tile_y << " type=" << map_data[next_tile_x][next_tile_y][0] << std::endl;
+            std::cout << "次の目的地 : x = " << next_tile_x << " y =  " << next_tile_y << " type=" << map_data[next_tile_y][next_tile_x][0] << std::endl;
             std::cout << "現在の進行方向  " << direction << std::endl;
 
 
@@ -539,7 +541,7 @@ namespace autorace{
                 if (FIGURE_SEARCH) detectSkin(caliblated);
                 if (now_phase == "straight") {
                     ros::Time now = ros::Time::now();
-                    if (now - line_lost_time > ros::Duration(2.0) && map_data[next_tile_x][next_tile_y][0] == 8) {
+                    if (now - line_lost_time > ros::Duration(0.5) && map_data[next_tile_y][next_tile_x][0] == 8) {
                         changePhase("intersection_straight");
                     } else {
                         double degree_average = detectLane(left_roi);
@@ -1257,7 +1259,7 @@ namespace autorace{
                 // 角度平均が-5以上なら左に曲がる、5以上なら右に曲がる
                 twist.angular.z = averageDegree * -0.01;
             }
-            twist.linear.x = 0.2;
+            twist.linear.x = 0.06;
             return averageDegree;
         }
 
