@@ -1551,7 +1551,7 @@ namespace autorace{
             if (now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME)) {
                 twist.linear.x = AVOID_OBSTACLE_VEL;
                 twist.angular.z = AVOID_OBSTACLE_ROT;
-                Right_LED = true; // LED
+                Left_LED = true; // LED
             } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME + AVOID_ROT_STRAIGHT))
             { // 右車線に向けて直進
                 twist.linear.x = AVOID_OBSTACLE_VEL;
@@ -1560,6 +1560,7 @@ namespace autorace{
             { // 右車線に対して水平になるように回転
                 twist.linear.x = AVOID_OBSTACLE_VEL;
                 twist.angular.z = -1 * AVOID_OBSTACLE_ROT;
+                Left_LED = false; // LED
             } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_BEFORE_STRAIGHT_MARGIN_TIME))
             { // 直進向く寸前に反動を消す
                 twist.linear.x = AVOID_OBSTACLE_VEL;
@@ -1575,8 +1576,7 @@ namespace autorace{
                 twist.linear.x = 0.2;
                 twist.angular.z = -1 * twist.angular.z;
                 limitedTwistPub();
-                Right_LED = false;
-                Left_LED = true; // LED
+                Right_LED = true; // LED
             } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 3 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME))
             { // 左車線に向けて回転
                 twist.linear.x = AVOID_OBSTACLE_VEL;
@@ -1589,6 +1589,7 @@ namespace autorace{
             { //左車線と水平になるように回転
                 twist.linear.x = AVOID_OBSTACLE_VEL;
                 twist.angular.z = AVOID_OBSTACLE_ROT;
+                Right_LED = false; // LED
             } else {
                 changePhase("search_line");
             }
@@ -1715,7 +1716,7 @@ namespace autorace{
 
 #if !DEBUG
             // LEDのための処理
-            if (!(Right_LED) && !(Left_LED)) {
+            if (!(Right_LED) && !(Left_LED) && now_phase != "search_line") {
                 if (before_twist_x > twist.linear.x || twist.linear.x == 0.0) {
                     *((unsigned char *) virt_addr2) = (char) 0xc0;
                     Brake_LED = true;
