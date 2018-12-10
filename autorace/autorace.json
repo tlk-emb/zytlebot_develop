@@ -51,11 +51,11 @@
     "red_low_h": 150,
     "red_low_s": 127,
     "red_low_v": 0,
-    "skin_high_h": 15,
+    "skin_high_h": 20,
     "skin_high_s": 255,
     "skin_high_v": 255,
-    "skin_low_h": 150,
-    "skin_low_s": 127,
-    "skin_low_v": 0
+    "skin_low_h": 0,
+    "skin_low_s": 30,
+    "skin_low_v": 60
   }
 }
