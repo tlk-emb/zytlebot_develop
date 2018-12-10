@@ -74,6 +74,8 @@ namespace autorace {
         std_msgs::UInt8MultiArrayPtr camdata;
         struct 	v4l2_buffer buf;
 
+        int got_buffer_num;
+
 
         struct v4l2_plane planes[FMT_NUM_PLANES];
 
@@ -87,6 +89,14 @@ namespace autorace {
         }
 
         ~NodeletPcam() {
+            for(int i = 0; i < got_buffer_num; i++){
+                if(munmap(buffers[i], 480 * 640 * 2) != 0){
+                    cerr << "munmap failed" << endl;
+                }else{
+                    cout << "munmap success" << endl;
+                }
+            }
+            close(fd);
         }
 
         void onInit() {
@@ -141,6 +151,7 @@ namespace autorace {
             {
                 memset(&(reqbuf), 0, sizeof(reqbuf));
                 reqbuf.count = FMT_NUM_PLANES;
+                got_buffer_num = reqbuf.count;
                 reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
                 reqbuf.memory = V4L2_MEMORY_MMAP;
 

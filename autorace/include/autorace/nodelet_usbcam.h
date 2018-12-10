@@ -69,6 +69,14 @@ namespace autorace {
         }
 
         ~NodeletUsbcam() {
+            for(int i = 0; i < got_buffer_num; i++){
+                if(munmap(buffers[i], 480 * 640 * 2) != 0){
+                    cerr << "munmap failed" << endl;
+                }else{
+                    cout << "munmap success" << endl;
+                }
+            }
+            close(fd);
         }
 
         void onInit() {

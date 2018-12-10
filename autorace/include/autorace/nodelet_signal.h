@@ -152,11 +152,10 @@ namespace autorace{
         }
 
         // デストラクタ
-        ~NodeletSignal()
-        {
+        ~NodeletSignal() {
+            if (hwmode) hw_release();
             // 全てのウインドウは破壊
             cv::destroyAllWindows();
-            if(hwmode) hw_release();
         }
 
         void onInit() {
