@@ -646,7 +646,7 @@ namespace autorace{
             }
         }
 
-    ////////////////関数//////////////////
+        ////////////////関数//////////////////
 
         void setParam() {
             // 進行方向も初期化読み込み
@@ -1080,19 +1080,19 @@ namespace autorace{
             if (tileType == 3 && differenceDirection== 2) {
                 // nextTileを検索
                 // カーブを右に曲がるならfind_curveを探索
-                    curveAfterCrosswalk = true;
-                    now_dir = (now_dir + 1) % 4;
-                    changePhase("trace_right_curve");
-                    setNextTile();
+                curveAfterCrosswalk = true;
+                now_dir = (now_dir + 1) % 4;
+                changePhase("trace_right_curve");
+                setNextTile();
             } else if (tileType == 3 && differenceDirection == 3) {
                 // 左カーブ
-                    now_dir = (now_dir + 3) % 4;
-                    changePhase("turn_left");
-                    setNextTile();
+                now_dir = (now_dir + 3) % 4;
+                changePhase("turn_left");
+                setNextTile();
             } else if (tileType == 2 || tileType == 5 || tileType == 6) {
                 // 横断歩道
-                    std::cout << "横断歩道発見" << std::endl;
-                    changePhase("crosswalk");
+                std::cout << "横断歩道発見" << std::endl;
+                changePhase("crosswalk");
             } else {
                 if (tileType == 7) { // T字路
                     if (differenceDirection == 3) {
@@ -1871,7 +1871,7 @@ namespace autorace{
 
 
 
-    // 二点をSTRAIGHT構造体で返す
+        // 二点をSTRAIGHT構造体で返す
         STRAIGHT toStraightStruct(cv::Vec4i line) {
             STRAIGHT result;
 
@@ -1891,8 +1891,8 @@ namespace autorace{
             return result;
         }
 
-    // 二点間の傾きを求め、長さをかけて重さとする
-    // x1 y1, x2 y2
+        // 二点間の傾きを求め、長さをかけて重さとする
+        // x1 y1, x2 y2
         double lineWeight(cv::Vec4i line) {
             // 距離
             double distance = (line[0] - line[2]) * (line[0] - line[2]) + (line[1] - line[3]) * (line[1] - line[3]);
@@ -1907,7 +1907,7 @@ namespace autorace{
         }
 
 
-    // 白色検出（返り値はRGB）
+        // 白色検出（返り値はRGB）
         cv::Mat whiteBinary(cv::Mat image) {
             cv::Mat color_mask, result_image, hsv_image;
             cv::cvtColor(image, hsv_image, CV_BGR2HSV);
