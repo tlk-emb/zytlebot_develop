@@ -236,6 +236,26 @@ namespace autorace{
 
         std::string project_folder;
 
+        // 赤色検出 //////////////
+        int RED_HIGH_H;
+        int RED_HIGH_S;
+        int RED_HIGH_V;
+
+        int RED_LOW_H;
+        int RED_LOW_S;
+        int RED_LOW_V;
+
+        // 肌色検出 //////////////
+        int SKIN_HIGH_H;
+        int SKIN_HIGH_S;
+        int SKIN_HIGH_V;
+
+        int SKIN_LOW_H;
+        int SKIN_LOW_S;
+        int SKIN_LOW_V;
+
+        //////////////////
+
         //////////////// LEDのためのフラグ/////////////////
         bool find_intersection;
         bool do_curve;
@@ -720,6 +740,24 @@ namespace autorace{
             CAMERA_HEIGHT = autorace["camera_height"].int_value();
 
             SW_CHANGE_PHASE = autorace["sw_change_phase"].string_value();
+
+            // 赤色検出
+            RED_HIGH_H = autorace["red_high_h"].int_value();
+            RED_HIGH_S = autorace["red_high_s"].int_value();
+            RED_HIGH_V = autorace["red_high_v"].int_value();
+
+            RED_LOW_H = autorace["red_low_h"].int_value();
+            RED_LOW_S = autorace["red_low_s"].int_value();
+            RED_LOW_V = autorace["red_low_v"].int_value();
+
+            // 肌色検出
+            SKIN_HIGH_H = autorace["skin_high_h"].int_value();
+            SKIN_HIGH_S = autorace["skin_high_s"].int_value();
+            SKIN_HIGH_V = autorace["skin_high_v"].int_value();
+
+            SKIN_LOW_H = autorace["skin_low_h"].int_value();
+            SKIN_LOW_S = autorace["skin_low_s"].int_value();
+            SKIN_LOW_V = autorace["skin_low_v"].int_value();
 
             cout << "json parse end" << endl;
 
@@ -1955,14 +1993,14 @@ namespace autorace{
             }
         }
 
-        void findRedObs(cv::Mat birds_eye){
+        void findRedObs(cv::Mat birds_eye) {
             cv::Mat red_mask1, red_mask2, red_image, red_hsv_image;
             cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
             cv::cvtColor(redRoi, red_hsv_image, CV_BGR2HSV);
-            cv::inRange(red_hsv_image, cv::Scalar(0, 127, 0, 0),
-                        cv::Scalar(15, 255, 255, 0), red_mask1);
-            cv::inRange(red_hsv_image, cv::Scalar(150, 127, 0, 0),
-                        cv::Scalar(179, 255, 255, 0), red_mask2);
+            cv::inRange(red_hsv_image, cv::Scalar(0, RED_LOW_S, RED_LOW_V, 0),
+                        cv::Scalar(RED_HIGH_H, RED_HIGH_S, RED_HIGH_V, 0), red_mask1);
+            cv::inRange(red_hsv_image, cv::Scalar(RED_LOW_H, RED_LOW_S, RED_LOW_V, 0),
+                        cv::Scalar(179, RED_HIGH_S, RED_HIGH_V, 0), red_mask2);
             // cv::bitwise_and(redRoi, redRoi, red_image, red_mask1 + red_mask2);
 
             int fractionNum = cv::countNonZero(red_mask1 + red_mask2);
@@ -1986,12 +2024,14 @@ namespace autorace{
             cv::Mat skin_mask, skin_image, skin_hsv_image, result_image;
             // cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * 0.2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
             cv::cvtColor(image, skin_hsv_image, CV_BGR2HSV);
-            cv::inRange(skin_hsv_image, cv::Scalar(0, 30, 60, 0),
-                        cv::Scalar(20, 255, 255, 0), skin_mask);
+            cv::inRange(skin_hsv_image, cv::Scalar(SKIN_LOW_H, SKIN_LOW_S, SKIN_LOW_V, 0),
+                        cv::Scalar(SKIN_HIGH_H, SKIN_HIGH_S, SKIN_HIGH_V, 0), skin_mask);
             cv::bitwise_and(image, image, result_image, skin_mask);
 
-            cv::imshow("skin", result_image);
-            cv::moveWindow("skin", 600, 20);
+            if(DEBUG) {
+                cv::imshow("skin", result_image);
+                cv::moveWindow("skin", 600, 20);
+            }
 
             int fractionNum = cv::countNonZero(skin_mask);
             std::cout << "肌色成分 : " << fractionNum << std::endl;

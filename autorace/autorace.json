@@ -45,5 +45,17 @@
     "avoid_straight_time": 4.75,
     "avoid_before_straight_margin_time": 0.5,
     "intersection_straight_time": 5
+    "red_high_h": 15,
+    "red_high_s": 255,
+    "red_high_v": 255,
+    "red_low_h": 150,
+    "red_low_s": 127,
+    "red_low_v": 0,
+    "skin_high_h": 15,
+    "skin_high_s": 255,
+    "skin_high_v": 255,
+    "skin_low_h": 150,
+    "skin_low_s": 127,
+    "skin_low_v": 0
   }
 }
