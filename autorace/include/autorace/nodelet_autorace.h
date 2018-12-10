@@ -1957,7 +1957,7 @@ namespace autorace{
 
         void findRedObs(cv::Mat birds_eye){
             cv::Mat red_mask1, red_mask2, red_image, red_hsv_image;
-            cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * 0.2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
+            cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
             cv::cvtColor(redRoi, red_hsv_image, CV_BGR2HSV);
             cv::inRange(red_hsv_image, cv::Scalar(0, 127, 0, 0),
                         cv::Scalar(15, 255, 255, 0), red_mask1);
@@ -1967,6 +1967,9 @@ namespace autorace{
 
             int fractionNum = cv::countNonZero(red_mask1 + red_mask2);
             cout << "SEARCH RED OBJECT !!!!! fractionNum :" << fractionNum << endl;
+            if (fractionNum > 100 && RED_OBJ_SEARCH) {
+                Left_LED = true;
+            }
             if (fractionNum > 500 && RED_OBJ_SEARCH) {
                 int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
                 int tileType = map_data[next_tile_y][next_tile_x][0];
