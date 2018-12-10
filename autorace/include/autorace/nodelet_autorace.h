@@ -127,6 +127,8 @@ namespace autorace{
 
         ros::Publisher signal_search_;
 
+        ros::Timer led_timer;
+
         bool red_flag;
 
         // 定数宣言
@@ -293,9 +295,36 @@ namespace autorace{
         NodeletAutorace(){
         }
 
+        // デストラクタ
+        ~NodeletAutorace() {
+#if !DEBUG
+            *((unsigned char *) virt_addr2) = (char) 0x00;
+            if(munmap(map_base, MAP_SIZE) == -1) FATAL;
+            close(fd);
+
+            if(munmap(map_base2, MAP_SIZE) == -1) FATAL;
+#endif
+            twist.linear.x = 0.0;
+            twist.angular.z = 0.0;
+            twist_pub.publish(twist);
+            // 全てのウインドウは破壊
+            cv::destroyAllWindows();
+        }
+
+        void redFlagUpdate(const std_msgs::String &msg) {
+            if (msg.data == "true") {
+                red_flag = true;
+            } else {
+                red_flag = false;
+            }
+
+            cout << msg.data << endl;
+            cout << red_flag << endl;
+        }
+
         void onInit() {
 
-            ros::NodeHandle& nh_ = getNodeHandle();
+            nh_ = getNodeHandle();
             nh_.getParam("/nodelet_autorace/autorace", params);
 
 #if !DEBUG
@@ -357,79 +386,56 @@ namespace autorace{
 
             //  処理した挙動をパブリッシュ
 
-            // LEDの点灯
 
 #if !DEBUG
-            ros::Timer left_led_timer = nh_.createTimer(ros::Duration(0.5), boost::bind(&NodeletAutorace::leftLedCb, this, _1));
-            ros::Timer right_led_timer = nh_.createTimer(ros::Duration(0.5), boost::bind(&NodeletAutorace::RightLedCb, this, _1));
+            // LEDの点灯
+            led_timer = nh_.createTimer(ros::Duration(0.5), boost::bind(&NodeletAutorace::ledCb, this, _1));
 #endif
             //
 
         }
 
 #if !DEBUG
-        void leftLedCb(const ros::TimerEvent& event) {
-            if (!(Left_LED_before) && Left_LED) {
-                cout << "Left LED Lightning!!!!!!" << endl;
-                *((unsigned char *) virt_addr2) = (char)0x01;
+        void ledCb(const ros::TimerEvent& event) {
+
+            if (now_phase == "search_line" && !Left_LED_before && !Right_LED_before) {
+                *((unsigned char *) virt_addr2) = (char)0x30;
                 Left_LED_before = true;
-            } else if (!(Right_LED) && !(Brake_LED)) {
-                *((unsigned char *) virt_addr2) = (char)0x00;
-                Left_LED_before = false;
-            } else {
-                Left_LED_before = false;
-            }
-        }
-
-        void RightLedCb(const ros::TimerEvent& event) {
-            cout << "Right LED Lightning!!!!!!" << endl;
-            if (!(Right_LED_before) && Right_LED) {
-                *((unsigned char *) virt_addr2) = (char)0x02;
                 Right_LED_before = true;
-            } else if (!(Left_LED) && !(Brake_LED)) {
+            } else if (!Left_LED_before && Left_LED) {
+                cout << "Left LED Lightning!!!!!!" << endl;
+                *((unsigned char *) virt_addr2) = (char)0x10;
+                Left_LED_before = true;
+                Right_LED_before = false;
+            } else if (!Right_LED_before && Right_LED) {
+                cout << "Right LED Lightning!!!!!!" << endl;
+                *((unsigned char *) virt_addr2) = (char)0x20;
+                Right_LED_before = true;
+                Left_LED_before = false;
+            } else if (!Brake_LED) {
                 *((unsigned char *) virt_addr2) = (char)0x00;
+                Left_LED_before = false;
                 Right_LED_before = false;
             } else {
+                Left_LED_before = false;
                 Right_LED_before = false;
             }
         }
 #endif
 
-
-        // デストラクタ
-        ~NodeletAutorace() {
-#if !DEBUG
-            if(munmap(map_base, MAP_SIZE) == -1) FATAL;
-            close(fd);
-
-            if(munmap(map_base2, MAP_SIZE) == -1) FATAL;
-#endif
-            twist.linear.x = 0.0;
-            twist.angular.z = 0.0;
-            twist_pub.publish(twist);
-            // 全てのウインドウは破壊
-            cv::destroyAllWindows();
-        }
-
-        void redFlagUpdate(const std_msgs::String &msg) {
-            if (msg.data == "true") {
-                red_flag = true;
-            } else {
-                red_flag = false;
-            }
-
-            cout << msg.data << endl;
-            cout << red_flag << endl;
-        }
 
         // コールバック関数
         // if zybo
 #if DEBUG
         void imageCb(const std_msgs::UInt8MultiArray &msg) {
 #else
-        void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
+            void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
 #endif
 #if !DEBUG
+            cout << "Left LED : " << Left_LED << endl;
+            cout << "Right LED : " << Right_LED << endl;
+            cout << "Brake LED : " << Brake_LED << endl;
+
             unsigned long read_result = *((unsigned char *) virt_addr);
             int res = (int)read_result;
 
@@ -1710,13 +1716,15 @@ namespace autorace{
 #if !DEBUG
             // LEDのための処理
             if (!(Right_LED) && !(Left_LED)) {
-                if (before_twist_x >= twist.linear.x) {
+                if (before_twist_x > twist.linear.x || twist.linear.x == 0.0) {
                     *((unsigned char *) virt_addr2) = (char) 0xc0;
                     Brake_LED = true;
-                } else{
+                } else {
                     *((unsigned char *) virt_addr2) = (char) 0x00;
                     Brake_LED = false;
                 }
+            } else {
+                Brake_LED = false;
             }
 #endif
             before_twist_x = twist.linear.x;
@@ -2021,6 +2029,8 @@ namespace autorace{
             cout << "SEARCH RED OBJECT !!!!! fractionNum :" << fractionNum << endl;
             if (fractionNum > 100 && RED_OBJ_SEARCH) {
                 Left_LED = true;
+            } else {
+                Left_LED = false;
             }
             if (fractionNum > 500 && RED_OBJ_SEARCH) {
                 int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
