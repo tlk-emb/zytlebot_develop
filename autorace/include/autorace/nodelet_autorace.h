@@ -1695,7 +1695,7 @@ namespace autorace{
             if (twist.angular.z > BURGER_MAX_ANG_VEL) twist.angular.z = BURGER_MAX_ANG_VEL;
             if ((twist.angular.z < 0 - BURGER_MAX_ANG_VEL)) twist.angular.z = 0 - BURGER_MAX_ANG_VEL;
 
-#if DEBUG
+#if !DEBUG
             // LEDのための処理
             if (!(Right_LED) && !(Left_LED)) {
                 if (before_twist_x >= twist.linear.x) {
