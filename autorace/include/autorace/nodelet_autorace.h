@@ -80,6 +80,14 @@ public:
     ros::Time timeStamp;
 } OBJECT;
 
+// 人形を発見し、急停止した時に
+typedef struct phaseInfoBackup {
+public:
+    geometry_msgs::Twist backupTwist;
+    ros::Time line_lost_time;
+    ros::Time stopStartTime;
+} PHASE_INFO_BACKUP;
+
 
 // 直線を中点、傾き、長さで表す
 typedef struct straight {
@@ -147,7 +155,6 @@ namespace autorace{
 
 
         geometry_msgs::Twist twist;
-        geometry_msgs::Twist backupTwist;
 
         ros::Publisher twist_pub;
         // cv::Mat curve_image;
@@ -167,6 +174,8 @@ namespace autorace{
         // 発見したオブジェクト（交差点、障害物）のリスト
         std::list <OBJECT> objects;
 
+
+        PHASE_INFO_BACKUP backupInfo;
 
         // 次のtileを保存
         int next_tile_x;
@@ -565,18 +574,9 @@ namespace autorace{
             // ---------------controller----------------
             updateObject();
 
-            if (findFigureFlag) {
-                // 人形検知
-                detectSkin(caliblated);
+            if (FIGURE_SEARCH)searchFigure(birds_eye);
 
-                twist.linear.x = 0.0;
-                twist.angular.z = 0.0;
-                limitedTwistPub();
-                // phaseStartTimeにcycleTimeを加算することによって、なんらかの動作途中であっても影響をなくす
-                phaseStartTime = phaseStartTime + ros::Duration(ros::Time::now() - cycleTime);
-                std::cout << phaseStartTime << std::endl;
-            } else {
-                if (FIGURE_SEARCH) detectSkin(caliblated);
+            if (!findFigureFlag) {
                 if (now_phase == "straight") {
                     ros::Time now = ros::Time::now();
                     if (now - line_lost_time > ros::Duration(0.5) && map_data[next_tile_y][next_tile_x][0] == 8) {
@@ -585,7 +585,7 @@ namespace autorace{
                         double degree_average = detectLane(left_roi);
                         detected_angle = degree_average;
                         // レーン検出してdetected_lineを更新、平均角度を求める
-                        findRedObs(birds_eye);
+                        searchRedObs(birds_eye);
                         intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                         searchObject();
                         lineTrace(degree_average, road_white_binary);
@@ -1733,13 +1733,6 @@ namespace autorace{
             twist_pub.publish(twist);
         }
 
-        void backupTwistPub() {
-            backupTwist = twist;
-            twist.linear.x = 0;
-            twist.angular.z = 0;
-            twist_pub.publish(twist);
-        }
-
         // ラインが見つからないときに首を振ることで直線を探す
         void searchLine() {
             ros::Time now = ros::Time::now();
@@ -2016,7 +2009,7 @@ namespace autorace{
             }
         }
 
-        void findRedObs(cv::Mat birds_eye) {
+        void searchRedObs(const cv::Mat& birds_eye) {
             cv::Mat red_mask1, red_mask2, red_image, red_hsv_image;
             cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
             cv::cvtColor(redRoi, red_hsv_image, CV_BGR2HSV);
@@ -2036,15 +2029,49 @@ namespace autorace{
             if (fractionNum > 500 && RED_OBJ_SEARCH) {
                 int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
                 int tileType = map_data[next_tile_y][next_tile_x][0];
-                cout << "TileType = " << tileType << "!  nextDirection = " << nextDirection << endl;
 
                 if (tileType == 7 && nextDirection == 0) {
                     setNextTile(); // T字路直進の場合スキップ
+                    cout << "Skip Tile!!!! next TileType = " << tileType << "!  nextDirection = " << nextDirection << endl;
                 }
                 changePhase("find_obs");
             }
         }
 
+        void searchFigure(const cv::Mat& birds_eye) {
+            cv::Mat skin_mask, skin_image, skin_hsv_image;
+            cv::Mat skinRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2,
+                                                BIRDSEYE_LENGTH / 2));
+            cv::cvtColor(skinRoi, skin_hsv_image, CV_BGR2HSV);
+            cv::inRange(skin_hsv_image, cv::Scalar(SKIN_LOW_H, SKIN_LOW_S, SKIN_LOW_V, 0),
+                        cv::Scalar(SKIN_HIGH_H, SKIN_HIGH_S, SKIN_HIGH_V, 0), skin_mask);
+            // cv::bitwise_and(redRoi, redRoi, red_image, red_mask1 + red_mask2);
+
+            int fractionNum = cv::countNonZero(skin_mask);
+            cout << "FIGUREEEEEEEEEEEEE !!!!! fractionNum :" << fractionNum << endl;
+
+            if (findFigureFlag) {
+                if (ros::Time::now() - phaseStartTime > ros::Duration(20.0) || fractionNum < 500 && FIGURE_SEARCH) {
+                    ros::Duration stopTime = ros::Time::now() - backupInfo.stopStartTime;
+                    phaseStartTime = phaseStartTime + stopTime;
+                    twist = backupInfo.backupTwist;
+                    line_lost_time = backupInfo.line_lost_time + stopTime;
+                    findFigureFlag = false;
+                }
+            } else if (fractionNum > 500 && FIGURE_SEARCH) {
+                backupInfo.stopStartTime = ros::Time::now();
+                backupInfo.backupTwist = twist;
+                backupInfo.line_lost_time = line_lost_time;
+
+                twist.linear.x = 0;
+                twist.angular.z = 0;
+                limitedTwistPub();
+                findFigureFlag = true;
+            }
+        }
+
+
+        // 重いから却下になりそう
         void detectSkin(const cv::Mat& image){
             cv::Mat skin_mask, skin_image, skin_hsv_image, result_image;
             // cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * 0.2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
