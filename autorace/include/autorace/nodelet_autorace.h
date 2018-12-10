@@ -2150,8 +2150,8 @@ namespace autorace{
                 std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
                 // cv::rectangle(aroundDebug, cv::Point(searchLeftX + maxPt.x, maxPt.y), cv::Point(searchLeftX + maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(255 * maxVal, 255 * maxVal, 255 * maxVal), 2, 8, 0);
                 if (maxVal > 0.75) {
-                    addObject(searchType, searchLeftX + maxPt.x  + template_right_T.cols / 2, maxPt.y + template_right_T.rows / 2);
-                    std::cout << searchType << " find! y =  " << maxPt.y + template_img.rows / 2 << std::endl;
+                    addObject(searchType, searchLeftX + maxPt.x  + template_right_T.cols / 2, maxPt.y + template_right_T.rows);
+                    std::cout << searchType << " find! y(bottom) =  " << maxPt.y + template_img.rows << std::endl;
                     find = true;
                 }
             }
