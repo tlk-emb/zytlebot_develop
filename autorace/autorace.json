@@ -44,7 +44,7 @@
     "avoid_rot_straight": 1.2,
     "avoid_straight_time": 4.75,
     "avoid_before_straight_margin_time": 0.5,
-    "intersection_straight_time": 5
+    "intersection_straight_time": 5,
     "red_high_h": 15,
     "red_high_s": 255,
     "red_high_v": 255,

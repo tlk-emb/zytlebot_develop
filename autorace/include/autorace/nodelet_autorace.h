@@ -340,9 +340,13 @@ namespace autorace{
             // パラメータセット
             setParam();
 
-
+#if DEBUG
+            image_sub_ = nh_.subscribe("/image_array", 1,
+                                       &NodeletAutorace::imageCb, this);
+#else
             image_sub_ = nh_.subscribe("/pcam/image_array", 1,
                                        &NodeletAutorace::imageCb, this);
+#endif
 
             red_pub_ = nh_.subscribe("/red_flag", 1,
                                      &NodeletAutorace::redFlagUpdate, this);
@@ -420,7 +424,11 @@ namespace autorace{
 
         // コールバック関数
         // if zybo
+#if DEBUG
+        void imageCb(const std_msgs::UInt8MultiArray &msg) {
+#else
         void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
+#endif
 #if !DEBUG
             unsigned long read_result = *((unsigned char *) virt_addr);
             int res = (int)read_result;
@@ -467,7 +475,11 @@ namespace autorace{
             // if_zybo
             cv::Mat base_image(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC2);
             cv::Mat dstimg(CAMERA_HEIGHT, CAMERA_WIDTH, CV_8UC2);
+#if DEBUG
+            memcpy(base_image.data, &msg.data[0], CAMERA_WIDTH * CAMERA_HEIGHT * 2);
+#else
             memcpy(base_image.data, &(msg->data[0]), CAMERA_WIDTH * CAMERA_HEIGHT * 2);
+#endif
             cv::cvtColor(base_image, dstimg, cv::COLOR_YUV2BGR_YUYV);
 
             cv::Mat caliblated;
