@@ -419,12 +419,12 @@ namespace autorace{
                 Right_LED_before = true;
             } else if (!Left_LED_before && Left_LED) {
                 cout << "Left LED Lightning!!!!!!" << endl;
-                *((unsigned char *) virt_addr2) = (char)0x10;
+                *((unsigned char *) virt_addr2) = (char)0x20;
                 Left_LED_before = true;
                 Right_LED_before = false;
             } else if (!Right_LED_before && Right_LED) {
                 cout << "Right LED Lightning!!!!!!" << endl;
-                *((unsigned char *) virt_addr2) = (char)0x20;
+                *((unsigned char *) virt_addr2) = (char)0x10;
                 Right_LED_before = true;
                 Left_LED_before = false;
             } else if (!Brake_LED) {
@@ -1570,7 +1570,7 @@ namespace autorace{
             if (now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME)) {
                 twist.linear.x = AVOID_OBSTACLE_VEL;
                 twist.angular.z = AVOID_OBSTACLE_ROT;
-                Left_LED = true; // LED
+                Right_LED = true; // LED
             } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME + AVOID_ROT_STRAIGHT))
             { // 右車線に向けて直進
                 twist.linear.x = AVOID_OBSTACLE_VEL;
@@ -1579,12 +1579,12 @@ namespace autorace{
             { // 右車線に対して水平になるように回転
                 twist.linear.x = AVOID_OBSTACLE_VEL;
                 twist.angular.z = -1 * AVOID_OBSTACLE_ROT;
-                Left_LED = false; // LED
+                Right_LED = false; // LED
             } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_BEFORE_STRAIGHT_MARGIN_TIME))
             { // 直進向く寸前に反動を消す
                 twist.linear.x = AVOID_OBSTACLE_VEL;
                 twist.angular.z = AVOID_OBSTACLE_ROT / 5;
-            }else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME)) { // 右車線を反転させてライントレースすることで、左車線と同様のアルゴリズムで走らせる(注// アングルも逆)
+            } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME)) { // 右車線を反転させてライントレースすることで、左車線と同様のアルゴリズムで走らせる(注// アングルも逆)
                 cv::Mat flipImg, flipAroundImg;
                 cv::flip(aroundWhiteBinary, flipAroundImg, 1);
                 cv::flip(road_white_binary, flipImg, 1);
@@ -1595,7 +1595,7 @@ namespace autorace{
                 twist.linear.x = 0.2;
                 twist.angular.z = -1 * twist.angular.z;
                 limitedTwistPub();
-                Right_LED = true; // LED
+                Left_LED = true; // LED
             } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 3 + AVOID_ROT_STRAIGHT + AVOID_STRAIGHT_TIME))
             { // 左車線に向けて回転
                 twist.linear.x = AVOID_OBSTACLE_VEL;
@@ -1609,6 +1609,11 @@ namespace autorace{
                 twist.linear.x = AVOID_OBSTACLE_VEL;
                 twist.angular.z = AVOID_OBSTACLE_ROT;
                 Right_LED = false; // LED
+            } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 4 + AVOID_ROT_STRAIGHT * 2 + AVOID_STRAIGHT_TIME + AVOID_BEFORE_STRAIGHT_MARGIN_TIME))
+            { //左車線と水平になるように回転
+                twist.linear.x = 0.1;
+                twist.angular.z =  (AVOID_OBSTACLE_ROT * -1) / 5;
+                Left_LED = false; // LED
             } else {
                 changePhase("search_line");
             }
@@ -2030,7 +2035,7 @@ namespace autorace{
 
         void searchRedObs(const cv::Mat& birds_eye) {
             cv::Mat red_mask1, red_mask2, red_image, red_hsv_image;
-            cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
+            cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH * 0.3, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
             cv::cvtColor(redRoi, red_hsv_image, CV_BGR2HSV);
             cv::inRange(red_hsv_image, cv::Scalar(0, RED_LOW_S, RED_LOW_V, 0),
                         cv::Scalar(RED_HIGH_H, RED_HIGH_S, RED_HIGH_V, 0), red_mask1);
@@ -2041,9 +2046,9 @@ namespace autorace{
             int fractionNum = cv::countNonZero(red_mask1 + red_mask2);
             cout << "SEARCH RED OBJECT !!!!! fractionNum :" << fractionNum << endl;
             if (fractionNum > 100 && RED_OBJ_SEARCH) {
-                Left_LED = true;
+                Right_LED = true;
             } else {
-                Left_LED = false;
+                Right_LED = false;
             }
             if (fractionNum > 500 && RED_OBJ_SEARCH) {
                 int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
@@ -2051,6 +2056,7 @@ namespace autorace{
 
                 if (tileType == 7 && nextDirection == 0) {
                     setNextTile(); // T字路直進の場合スキップ
+                    nowIntersectionCount++;
                     cout << "Skip Tile!!!! next TileType = " << tileType << "!  nextDirection = " << nextDirection << endl;
                 }
                 changePhase("find_obs");
@@ -2059,7 +2065,7 @@ namespace autorace{
 
         void searchFigure(const cv::Mat& birds_eye) {
             cv::Mat skin_mask, skin_image, skin_hsv_image;
-            cv::Mat skinRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2,
+            cv::Mat skinRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH * 0.3, BIRDSEYE_LENGTH / 2,
                                                 BIRDSEYE_LENGTH / 2));
             cv::cvtColor(skinRoi, skin_hsv_image, CV_BGR2HSV);
             cv::inRange(skin_hsv_image, cv::Scalar(SKIN_LOW_H, SKIN_LOW_S, SKIN_LOW_V, 0),
@@ -2235,9 +2241,9 @@ namespace autorace{
             if (find) {
                 if (!(searchType == "crosswalk" && (tileType == 6)) && searchType != "") {
                     if (nextDirection == 1) {
-                        Left_LED = true;
-                    } else if (nextDirection == 3) {
                         Right_LED = true;
+                    } else if (nextDirection == 3) {
+                        Left_LED = true;
                     }
                 }
             }
