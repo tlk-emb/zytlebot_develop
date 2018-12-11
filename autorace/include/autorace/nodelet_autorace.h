@@ -555,7 +555,7 @@ namespace autorace{
             // 左レーンの発見フラグをリセット
             find_left_line = false;
 
-            if(DEBUG) system("clear");
+            system("clear");
             std::cout << "現在のフェーズ : " << now_phase << std::endl;
             std::string direction;
             switch (now_dir) {
