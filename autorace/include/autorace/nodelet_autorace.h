@@ -922,8 +922,8 @@ namespace autorace{
                                  3, 8);
                     }
                     degree_average_sum += left_line.degree;
-                    if (most_left_middle_x > std::abs(left_line.middle.x - BIRDSEYE_LENGTH * 0.5)) {
-                        most_left_middle_x = std::abs(left_line.middle.x - BIRDSEYE_LENGTH * 0.5);
+                    if (most_left_middle_x > std::abs(left_line.middle.x - BIRDSEYE_LENGTH * (0.5 + RUN_LINE))) {
+                        most_left_middle_x = std::abs(left_line.middle.x - BIRDSEYE_LENGTH * (0.5 + RUN_LINE));
                         detected_line_x = left_line.middle.x - BIRDSEYE_LENGTH * 0.5;
                     }
                     find_left_line = true;
