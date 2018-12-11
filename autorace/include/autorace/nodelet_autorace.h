@@ -144,7 +144,7 @@ namespace autorace{
 
         double BURGER_MAX_LIN_VEL, BURGER_MAX_ANG_VEL, RIGHT_CURVE_START_LOST_LINE_TIME, LEFT_CURVE_START_LOST_LINE_TIME, RIGHT_CURVE_END_MARGIN_TIME, RIGHT_CURVE_END_TIME,
                 RIGHT_CURVE_VEL , RIGHT_CURVE_ROT , LEFT_CURVE_END_TIME , LEFT_CURVE_END_MARGIN_TIME , LEFT_CURVE_VEL , LEFT_CURVE_ROT , LEFT_CURVE_AFTER_ROT ,
-                AVOID_OBSTACLE_VEL , AVOID_OBSTACLE_ROT , AVOID_ROT_TIME , AVOID_ROT_STRAIGHT , AVOID_STRAIGHT_TIME , AVOID_BEFORE_STRAIGHT_MARGIN_TIME , INTERSECTION_PREDICTION_TIME_RATIO ,
+                AVOID_OBSTACLE_VEL , AVOID_OBSTACLE_ROT , AVOID_ROT_TIME , AVOID_ROT_STRAIGHT , AVOID_STRAIGHT_TIME , AVOID_BEFORE_STRAIGHT_MARGIN_TIME , INTERSECTION_PREDICTION_TIME_RATIO , DETECT_TEMPLATE_RATE,
                 CROSSWALK_UNDER_MARGIN, RIGHT_CURVE_UNDER_MARGIN , INTERSECTION_PREDICTION_UNDER_MARGIN , INTERSECTION_CURVE_START_FLAG_RATIO , RUN_LINE , RUN_LINE_MARGIN , WIDTH_RATIO , HEIGHT_H , HEIGHT_L, INTERSECTION_STRAIGHT_TIME;
 
 
@@ -760,6 +760,7 @@ namespace autorace{
             WIDTH_RATIO = autorace["width_ratio"].number_value();
             HEIGHT_H = autorace["height_h"].number_value();;
             HEIGHT_L = autorace["height_l"].number_value();;
+            DETECT_TEMPLATE_RATE = autorace["detect_template_rate"].number_value();;
 
             BIRDSEYE_LENGTH = autorace["birdseye_length"].int_value();
             CAMERA_WIDTH = autorace["camera_width"].int_value();
@@ -2065,7 +2066,7 @@ namespace autorace{
 
         void searchFigure(const cv::Mat& birds_eye) {
             cv::Mat skin_mask, skin_image, skin_hsv_image;
-            cv::Mat skinRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH * 0.3, BIRDSEYE_LENGTH / 2,
+            cv::Mat skinRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH * 0.5, BIRDSEYE_LENGTH / 2,
                                                 BIRDSEYE_LENGTH / 2));
             cv::cvtColor(skinRoi, skin_hsv_image, CV_BGR2HSV);
             cv::inRange(skin_hsv_image, cv::Scalar(SKIN_LOW_H, SKIN_LOW_S, SKIN_LOW_V, 0),
@@ -2228,7 +2229,7 @@ namespace autorace{
                 cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
                 std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
                 // cv::rectangle(aroundDebug, cv::Point(searchLeftX + maxPt.x, maxPt.y), cv::Point(searchLeftX + maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(255 * maxVal, 255 * maxVal, 255 * maxVal), 2, 8, 0);
-                if (maxVal > 0.75) {
+                if (maxVal > DETECT_TEMPLATE_RATE) {
                     addObject(searchType, searchLeftX + maxPt.x  + template_right_T.cols / 2, maxPt.y + template_right_T.rows);
                     std::cout << searchType << " find! y(bottom) =  " << maxPt.y + template_img.rows << std::endl;
                     find = true;
@@ -2308,7 +2309,7 @@ namespace autorace{
                         rightcurveFlag = true;
                     }
                 }
-                else if (obj.beforeY > BIRDSEYE_LENGTH -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
+                else if (obj.beforeY > BIRDSEYE_LENGTH  -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
                     if (obj.findCnt > 1) {
                         if (obj.objType == "right_T" || obj.objType == "left_T" || obj.objType == "under_T" || obj.objType == "intersection") {
                             intersectionDetectionFlag = true;
