@@ -145,7 +145,7 @@ namespace autorace{
         double BURGER_MAX_LIN_VEL, BURGER_MAX_ANG_VEL, RIGHT_CURVE_START_LOST_LINE_TIME, LEFT_CURVE_START_LOST_LINE_TIME, RIGHT_CURVE_END_MARGIN_TIME, RIGHT_CURVE_END_TIME,
                 RIGHT_CURVE_VEL , RIGHT_CURVE_ROT , LEFT_CURVE_END_TIME , LEFT_CURVE_END_MARGIN_TIME , LEFT_CURVE_VEL , LEFT_CURVE_ROT , LEFT_CURVE_AFTER_ROT ,
                 AVOID_OBSTACLE_VEL , AVOID_OBSTACLE_ROT , AVOID_ROT_TIME , AVOID_ROT_STRAIGHT , AVOID_STRAIGHT_TIME , AVOID_BEFORE_STRAIGHT_MARGIN_TIME , INTERSECTION_PREDICTION_TIME_RATIO ,
-                CROSSWALK_UNDER_MARGIN , INTERSECTION_PREDICTION_UNDER_MARGIN , INTERSECTION_CURVE_START_FLAG_RATIO , RUN_LINE , RUN_LINE_MARGIN , WIDTH_RATIO , HEIGHT_H , HEIGHT_L, INTERSECTION_STRAIGHT_TIME;
+                CROSSWALK_UNDER_MARGIN, RIGHT_CURVE_UNDER_MARGIN , INTERSECTION_PREDICTION_UNDER_MARGIN , INTERSECTION_CURVE_START_FLAG_RATIO , RUN_LINE , RUN_LINE_MARGIN , WIDTH_RATIO , HEIGHT_H , HEIGHT_L, INTERSECTION_STRAIGHT_TIME;
 
 
         int Hue_l, Hue_h, Saturation_l, Saturation_h, Lightness_l, Lightness_h;
@@ -210,6 +210,8 @@ namespace autorace{
         // 横断歩道の（停止線）の位置に来た時trueになる
         bool crosswalkFlag;
 
+        bool rightcurveFlag;
+
         // 人形を見つけているかどうか
         bool findFigureFlag;
 
@@ -237,7 +239,7 @@ namespace autorace{
         cv::Mat template_left_T;
         cv::Mat template_under_T;
         cv::Mat template_crosswalk;
-        cv::Mat template_curve;
+        cv::Mat template_right_curve;
         cv::Mat template_intersection;
 
         cv::Mat aroundDebug;
@@ -613,6 +615,7 @@ namespace autorace{
                     obstacleAvoidance(road_white_binary, aroundWhiteBinary);
                 } else if (now_phase == "intersection_straight") {
                     double degree_average = intersectionStraight(road_clone);
+                    twist.linear.x = 0.1;
                     detected_angle = degree_average;
                     intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                     searchObject();
@@ -750,6 +753,7 @@ namespace autorace{
             INTERSECTION_PREDICTION_TIME_RATIO = autorace["intersection_prediction_time_ratio"].number_value();
             INTERSECTION_CURVE_START_FLAG_RATIO = autorace["intersection_curve_start_flag_ratio"].number_value();
             CROSSWALK_UNDER_MARGIN = autorace["crosswalk_under_margin"].number_value();
+            RIGHT_CURVE_UNDER_MARGIN = autorace["right_curve_under_margin"].number_value();
             INTERSECTION_PREDICTION_UNDER_MARGIN = autorace["intersection_prediction_under_margin"].number_value();
             RUN_LINE = autorace["run_line"].number_value();
             RUN_LINE_MARGIN = autorace["run_line_margin"].number_value();
@@ -787,7 +791,7 @@ namespace autorace{
             template_left_T = cv::imread((std::string) params["project_folder"] + "/image/left_T.png", 1);
             template_under_T = cv::imread((std::string) params["project_folder"] + "/image/under_T.png", 1);
             template_crosswalk = cv::imread((std::string) params["project_folder"] + "/image/crosswalk.png", 1);
-            template_curve = cv::imread((std::string) params["project_folder"] + "/image/curve.png", 1);
+            template_right_curve = cv::imread((std::string) params["project_folder"] + "/image/right_curve.png", 1);
             template_intersection = cv::imread((std::string) params["project_folder"] + "/image/intersection.png", 1);
 
 
@@ -816,6 +820,7 @@ namespace autorace{
             curveAfterCrosswalk = false;
             intersectionAfterCrosswalk = false;
             crosswalkFlag = false;
+            rightcurveFlag = false;
             findFigureFlag = false;
 
             searchType == "";
@@ -890,6 +895,7 @@ namespace autorace{
             intersectionDetectionFlag = false;
             reachBottomLeftLaneStraightEnd = false;
             crosswalkFlag = false;
+            rightcurveFlag = false;
             line_lost_time = ros::Time::now();
 
             figure_search_phase_limit = false;
@@ -979,10 +985,10 @@ namespace autorace{
             if (tileType == 3 && differenceDirection== 2) {
                 // nextTileを検索
                 // カーブを右に曲がるならfind_curveを探索
-                if (now - line_lost_time > ros::Duration(RIGHT_CURVE_START_LOST_LINE_TIME)) {
+                if (rightcurveFlag) {
                     curveAfterCrosswalk = true;
                     now_dir = (now_dir + 1) % 4;
-                    changePhase("trace_right_curve");
+                    changePhase("turn_right");
                     setNextTile();
                 }
             } else if (tileType == 3 && differenceDirection == 3) {
@@ -1270,6 +1276,8 @@ namespace autorace{
                 }
             } else if (tileType == 8) {
                 searchType = "intersection";
+            } else if (tileType == 3) {
+                searchType = "right_curve";
             } else {
                 searchType = "";
             }
@@ -2189,6 +2197,8 @@ namespace autorace{
                 template_img = template_crosswalk;
             } else if (searchType == "intersection") {
                 template_img = template_intersection;
+            } else if (searchType == "right_curve") {
+                template_img = template_right_curve;
             } else {
                 doSearch = false;
             }
@@ -2287,14 +2297,15 @@ namespace autorace{
                     if (obj.beforeY > BIRDSEYE_LENGTH -  CROSSWALK_UNDER_MARGIN)  {
                         crosswalkFlag = true;
                     }
-                } else if (obj.beforeY > BIRDSEYE_LENGTH -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
+                } else if(obj.objType == "right_curve") {
+                    if (obj.beforeY > BIRDSEYE_LENGTH -  RIGHT_CURVE_UNDER_MARGIN) {
+                        rightcurveFlag = true;
+                    }
+                }
+                else if (obj.beforeY > BIRDSEYE_LENGTH -  INTERSECTION_PREDICTION_UNDER_MARGIN)  {
                     if (obj.findCnt > 1) {
                         if (obj.objType == "right_T" || obj.objType == "left_T" || obj.objType == "under_T" || obj.objType == "intersection") {
                             intersectionDetectionFlag = true;
-                        }
-
-                        if (obj.objType == "crosswalk") {
-                            crosswalkFlag = true;
                         }
                     }
                 }
