@@ -26,7 +26,7 @@
 
 #define PI 3.141592653589793
 
-#define DEBUG false
+#define DEBUG true
 #define RED_OBJ_SEARCH false
 #define FIGURE_SEARCH false
 
@@ -367,9 +367,6 @@ public:
         } else {
             red_flag = false;
         }
-
-        cout << str << endl;
-        cout << red_flag << endl;
     }
 
 
@@ -457,6 +454,8 @@ public:
         std::cout << "現在の進行方向  " << direction << std::endl;
 
 
+        searchFigure(birds_eye);
+        searchRedObs(birds_eye);
         // ---------------controller----------------
         updateObject();
 
@@ -471,7 +470,7 @@ public:
                 double degree_average = detectLane(left_roi);
                 detected_angle = degree_average;
                 // レーン検出してdetected_lineを更新、平均角度を求める
-                if (RED_OBJ_SEARCH) findRedObs(birds_eye);
+                //if (RED_OBJ_SEARCH) findRedObs(birds_eye);
                 intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                 searchObject();
                 lineTrace(degree_average, road_white_binary);
@@ -1544,6 +1543,43 @@ public:
             OBJECT obj = {objType, objectX, objectY, 1, ros::Time::now()};
             objects.push_back(obj);
         }
+    }
+
+    void searchRedObs(const cv::Mat& birds_eye) {
+        cv::Mat red_mask1, red_mask2, red_image, red_hsv_image;
+        cv::Mat redRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2));
+        cv::cvtColor(redRoi, red_hsv_image, CV_BGR2HSV);
+        cv::inRange(red_hsv_image, cv::Scalar(0, 127, 0, 0),
+                    cv::Scalar(15, 255, 255, 0), red_mask1);
+        cv::inRange(red_hsv_image, cv::Scalar(150, 127, 0, 0),
+                    cv::Scalar(179, 255, 255, 0), red_mask2);
+#if DEBUG
+        cv::bitwise_and(redRoi, redRoi, red_image, red_mask1 + red_mask2);
+            cv::imshow("red", red_image);
+            cv::moveWindow("red", 800, 20);
+#endif
+
+        int fractionNum = cv::countNonZero(red_mask1 + red_mask2);
+        cout << "SEARCH RED OBJECT !!!!! fractionNum :" << fractionNum << endl;
+    }
+
+    void searchFigure(const cv::Mat& birds_eye) {
+        cv::Mat skin_mask, skin_image, skin_hsv_image;
+        cv::Mat skinRoi(birds_eye, cv::Rect(BIRDSEYE_LENGTH * RUN_LINE, BIRDSEYE_LENGTH / 2, BIRDSEYE_LENGTH / 2,
+                                            BIRDSEYE_LENGTH / 2));
+        cv::cvtColor(skinRoi, skin_hsv_image, CV_BGR2HSV);
+        cv::inRange(skin_hsv_image, cv::Scalar(0, 30, 60, 0),
+                    cv::Scalar(20, 255, 255, 0), skin_mask);
+
+#if DEBUG
+        cv::bitwise_and(skinRoi, skinRoi, skin_image, skin_mask);
+            cv::imshow("skin", skin_image);
+            cv::moveWindow("skin", 600, 20);
+#endif
+
+        int fractionNum = cv::countNonZero(skin_mask);
+        cout << "FIGUREE !!!!! fractionNum :" << fractionNum << endl;
+
     }
 
     void findRedObs(cv::Mat birds_eye){
