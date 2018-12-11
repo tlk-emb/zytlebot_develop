@@ -173,6 +173,7 @@ namespace autorace{
 
         int figure_search_limit;
         int figure_search_cnt;
+        bool figure_search_phase_limit;
 
         // 発見したオブジェクト（交差点、障害物）のリスト
         std::list <OBJECT> objects;
@@ -830,6 +831,11 @@ namespace autorace{
             bgs = cv::createBackgroundSubtractorMOG2();
             bgs->setVarThreshold(10);
 
+            // 人形のフラグ
+            figure_search_phase_limit = false;
+            figure_search_cnt = 0;
+            figure_search_limit = 3;
+
 
             // LEDのためのフラグ
             find_intersection = false;
@@ -886,8 +892,7 @@ namespace autorace{
             crosswalkFlag = false;
             line_lost_time = ros::Time::now();
 
-            figure_search_limit = 3;
-            figure_search_cnt = 0;
+            figure_search_phase_limit = false;
 
             Right_LED = false;
             Left_LED = false;
@@ -2054,7 +2059,7 @@ namespace autorace{
             // cv::bitwise_and(redRoi, redRoi, red_image, red_mask1 + red_mask2);
 
             int fractionNum = cv::countNonZero(skin_mask);
-            cout << "FIGUREEEEEEEEEEEEE !!!!! fractionNum :" << fractionNum << endl;
+            cout << "FIGUREE !!!!! fractionNum :" << fractionNum << endl;
 
             if (findFigureFlag) {
                 if (ros::Time::now() - phaseStartTime > ros::Duration(20.0) || fractionNum < 500 && FIGURE_SEARCH) {
@@ -2064,8 +2069,9 @@ namespace autorace{
                     line_lost_time = backupInfo.line_lost_time + stopTime;
                     findFigureFlag = false;
                 }
-            } else if (fractionNum > 500 && FIGURE_SEARCH && figure_search_cnt < figure_search_limit) {
+            } else if (fractionNum > 500 && FIGURE_SEARCH && figure_search_cnt < figure_search_limit && !figure_search_phase_limit) {
                 figure_search_cnt++;
+                figure_search_phase_limit = true;
                 backupInfo.stopStartTime = ros::Time::now();
                 backupInfo.backupTwist = twist;
                 backupInfo.line_lost_time = line_lost_time;
