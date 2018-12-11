@@ -42,48 +42,14 @@ struct buffer_addr_struct{
     size_t length[FMT_NUM_PLANES];
 } *buffers;
 
-static int xioctl(int fd, int request, void *arg)
-{
+static int xioctl(int fd, int request, void *arg){
     int r;
     do {
         r = ioctl (fd, request, arg);
         if (request == VIDIOC_DQBUF) {
             std::cout << "r : " << r << std::endl;
         }
-        if(errno == EAGAIN){
-            cout << "EAGAIN" << endl;
-        }else if(errno == EINVAL){
-            cout << "EINVAL" << endl;
-        }else if(errno == EIO){
-            cout << "EIO" << endl;
-        }else if(errno == EPIPE){
-            cout << "EPIPE" << endl;
-        }else if(errno == EACCES){
-            cout << "EACCESS" << endl;
-        }else if(errno == EBUSY){
-            cout << "EBUSY" << endl;
-        }else{
-            cout << "other error" << endl;
-        }
     } while (-1 == r && EINTR == errno);
-    if(r == -1){
-        cout << "loop breaked and error occurred" << endl;
-        if(errno == EAGAIN){
-            cout << "EAGAIN" << endl;
-        }else if(errno == EINVAL){
-            cout << "EINVAL" << endl;
-        }else if(errno == EIO){
-            cout << "EIO" << endl;
-        }else if(errno == EPIPE){
-            cout << "EPIPE" << endl;
-        }else if(errno == EACCES){
-            cout << "EACCESS" << endl;
-        }else if(errno == EBUSY){
-            cout << "EBUSY" << endl;
-        }else{
-            cout << "other error" << endl;
-        }
-    }
     return r;
 }
 
