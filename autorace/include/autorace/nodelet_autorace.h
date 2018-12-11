@@ -171,6 +171,9 @@ namespace autorace{
         bool RED_OBJ_SEARCH;
         bool FIGURE_SEARCH;
 
+        int figure_search_limit;
+        int figure_search_cnt;
+
         // 発見したオブジェクト（交差点、障害物）のリスト
         std::list <OBJECT> objects;
 
@@ -882,6 +885,9 @@ namespace autorace{
             reachBottomLeftLaneStraightEnd = false;
             crosswalkFlag = false;
             line_lost_time = ros::Time::now();
+
+            figure_search_limit = 3;
+            figure_search_cnt = 0;
 
             Right_LED = false;
             Left_LED = false;
@@ -2058,7 +2064,8 @@ namespace autorace{
                     line_lost_time = backupInfo.line_lost_time + stopTime;
                     findFigureFlag = false;
                 }
-            } else if (fractionNum > 500 && FIGURE_SEARCH) {
+            } else if (fractionNum > 500 && FIGURE_SEARCH && figure_search_cnt < figure_search_limit) {
+                figure_search_cnt++;
                 backupInfo.stopStartTime = ros::Time::now();
                 backupInfo.backupTwist = twist;
                 backupInfo.line_lost_time = line_lost_time;
