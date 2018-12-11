@@ -142,10 +142,66 @@ namespace autorace {
 
             pcam_frame = (int)params["pcam_frame"];
 
+            setInit();
+
+
+            image_pub_ = n.createTimer(ros::Duration(1.0 / pcam_frame), boost::bind(&NodeletPcam::imageCb, this, _1));
+        }
+
+        void imageCb(const ros::TimerEvent& event) {
+            // 7. Capture Image
+            if (CbFlag) {
+                cout << "pcam Cb fail" << endl;
+            } else
+            {
+                CbFlag = true;
+                fd_set fds;
+                FD_ZERO(&fds);
+                FD_SET(fd, &fds);
+                struct timeval tv = {0};
+                tv.tv_sec = 2;
+                int r = select(fd + 1, &fds, NULL, NULL, &tv);
+
+                if (-1 == r) {
+                    std::cout << "Waiting for Frame" << std::endl;
+                    return;
+                }
+
+
+
+                memset(&buf, 0, sizeof(buf));
+                memset(planes, 0, sizeof(planes));
+                buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+                buf.memory = V4L2_MEMORY_MMAP;
+                buf.m.planes = planes;
+                buf.length = FMT_NUM_PLANES;
+
+                if (-1 == xioctl(fd, VIDIOC_DQBUF, &buf)) {
+                    std::cout << "Pcam Retrieving Frame" << std::endl;
+                    reset();
+                    return;
+                }
+
+                // 8. Store Image in OpenCV Data Type
+                for (int j = 0; j < num_planes; j++) {
+                    memcpy(&(camdata->data[0]), buffers[buf.index].start[j], WIDTH * HEIGHT * 2);
+                    pub.publish(camdata);
+                    ROS_INFO("Pcam Published something!");
+                }
+
+                std::cout << "buf.index " << buf.index << std::endl;
+                // Connect buffer to queue for next capture.
+                if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
+                    std::cout << "VIDIOC_QBUF" << std::endl;
+                }
+
+                CbFlag = false;
+            }
+        }
+
+        void setInit() {
+
             CbFlag = false;
-
-
-
 
             // 1. Open Video Device.
             fd = open("/dev/video0", O_RDWR, 0);
@@ -284,58 +340,24 @@ namespace autorace {
             buf.index = 0;
             buf.m.planes = planes;
             buf.length = FMT_NUM_PLANES;
-
-            image_pub_ = n.createTimer(ros::Duration(1.0 / pcam_frame), boost::bind(&NodeletPcam::imageCb, this, _1));
         }
 
-        void imageCb(const ros::TimerEvent& event) {
-            // 7. Capture Image
-            if (CbFlag) {
-                cout << "pcam Cb fail" << endl;
-            } else
-            {
-                CbFlag = true;
-                fd_set fds;
-                FD_ZERO(&fds);
-                FD_SET(fd, &fds);
-                struct timeval tv = {0};
-                tv.tv_sec = 2;
-                int r = select(fd + 1, &fds, NULL, NULL, &tv);
-
-                if (-1 == r) {
-                    std::cout << "Waiting for Frame" << std::endl;
-                    return;
-                }
-
-
-
-                memset(&buf, 0, sizeof(buf));
-                memset(planes, 0, sizeof(planes));
-                buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-                buf.memory = V4L2_MEMORY_MMAP;
-                buf.m.planes = planes;
-                buf.length = FMT_NUM_PLANES;
-
-                if (-1 == xioctl(fd, VIDIOC_DQBUF, &buf)) {
-                    std::cout << "Pcam Retrieving Frame" << std::endl;
-                    return;
-                }
-
-                // 8. Store Image in OpenCV Data Type
-                for (int j = 0; j < num_planes; j++) {
-                    memcpy(&(camdata->data[0]), buffers[buf.index].start[j], WIDTH * HEIGHT * 2);
-                    pub.publish(camdata);
-                    ROS_INFO("Pcam Published something!");
-                }
-
-                std::cout << "buf.index " << buf.index << std::endl;
-                // Connect buffer to queue for next capture.
-                if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
-                    std::cout << "VIDIOC_QBUF" << std::endl;
-                }
-
-                CbFlag = false;
+        void reset() {
+            if (-1 == xioctl(fd, VIDIOC_STREAMOFF, &buf.type)) {
+                std::cout << "VIDIOC_STREAMOFF" << std::endl;
             }
+
+            for(int i = 0; i < 3; i++){
+                if(munmap(buffers[i].start[0], 480 * 640 * 2) != 0){
+                    cerr << "pcam munmap failed" << endl;
+                }else{
+                    cout << "pcam munmap success" << endl;
+                }
+            }
+            close(fd);
+
+            setInit();
+            cout << "--------------------pcam reset-------------------" << endl;
         }
     };
 }
