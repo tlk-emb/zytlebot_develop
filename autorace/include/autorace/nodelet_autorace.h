@@ -928,8 +928,8 @@ namespace autorace{
                                  3, 8);
                     }
                     degree_average_sum += left_line.degree;
-                    if (most_left_middle_x > std::abs(left_line.middle.x - BIRDSEYE_LENGTH * (0.5 + RUN_LINE))) {
-                        most_left_middle_x = std::abs(left_line.middle.x - BIRDSEYE_LENGTH * (0.5 + RUN_LINE));
+                    if (most_left_middle_x > std::abs(left_line.middle.x - BIRDSEYE_LENGTH * (0.5 + RUN_LINE + RUN_LINE_MARGIN))) {
+                        most_left_middle_x = std::abs(left_line.middle.x - BIRDSEYE_LENGTH * (0.5 + RUN_LINE + RUN_LINE_MARGIN));
                         detected_line_x = left_line.middle.x - BIRDSEYE_LENGTH * 0.5;
                     }
                     find_left_line = true;
@@ -1710,10 +1710,10 @@ namespace autorace{
 
             if (find_left_line) {
                 // 中点が右過ぎたら左に、左過ぎたら右に曲がる
-                if (detected_line_x > BIRDSEYE_LENGTH * (RUN_LINE + RUN_LINE_MARGIN)) {
+                if (detected_line_x > BIRDSEYE_LENGTH * RUN_LINE) {
                     twist.linear.x += 0.01;
                     twist.angular.z = -0.05;
-                } else if (detected_line_x < BIRDSEYE_LENGTH * (RUN_LINE - RUN_LINE_MARGIN)) {
+                } else if (detected_line_x < BIRDSEYE_LENGTH * RUN_LINE) {
                     twist.linear.x += 0.01;
                     twist.angular.z = 0.05;
                 } else {

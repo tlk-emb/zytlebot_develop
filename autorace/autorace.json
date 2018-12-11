@@ -22,7 +22,7 @@
     "lightness_l": 230,
     "lightness_h": 255,
     "run_line": 0.12,
-    "run_line_margin": 0,
+    "run_line_margin": 0.3,
     "intersection_prediction_time_ratio": 50,
     "intersection_prediction_under_margin": 20,
     "crosswalk_under_margin": 30,
