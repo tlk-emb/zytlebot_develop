@@ -580,7 +580,7 @@ namespace autorace{
             // ---------------controller----------------
             updateObject();
 
-            if (FIGURE_SEARCH)searchFigure(birds_eye);
+
 
             if (!findFigureFlag) {
                 if (now_phase == "straight") {
@@ -592,6 +592,7 @@ namespace autorace{
                         detected_angle = degree_average;
                         // レーン検出してdetected_lineを更新、平均角度を求める
                         searchRedObs(birds_eye);
+                        if (now_phase == "straight" && FIGURE_SEARCH)searchFigure(birds_eye);
                         intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                         searchObject();
                         lineTrace(degree_average, road_white_binary);
@@ -623,6 +624,8 @@ namespace autorace{
                 } else if (now_phase == "crosswalk") {
                     crosswalkRedStop();
                 }
+            } else {
+                searchFigure(birds_eye);
             }
 
             // ---------------controller end----------------
@@ -840,7 +843,7 @@ namespace autorace{
             // 人形のフラグ
             figure_search_phase_limit = false;
             figure_search_cnt = 0;
-            figure_search_limit = 3;
+            figure_search_limit = 2;
 
 
             // LEDのためのフラグ
