@@ -97,7 +97,6 @@ namespace autorace {
         }
 
         void onInit() {
-
             n = getNodeHandle();
             pub = n.advertise<std_msgs::UInt8MultiArray>("/pcam/image_array",  640 * 480 * 2);
             n.getParam("/nodelet_autorace/autorace", params);
@@ -262,7 +261,7 @@ namespace autorace {
                 }
 
                 if (-1 == xioctl(fd, VIDIOC_DQBUF, &buf)) {
-                    std::cout << "Retrieving Frame" << std::endl;
+                    std::cout << "Pcam Retrieving Frame" << std::endl;
                     return;
                 }
                 // std::cout << "buf.index " << buf.index << std::endl;

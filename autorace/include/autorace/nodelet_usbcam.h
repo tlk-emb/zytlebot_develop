@@ -80,7 +80,6 @@ namespace autorace {
         }
 
         void onInit() {
-
             n = getNodeHandle();
             pub = n.advertise<std_msgs::UInt8MultiArray>("/usbcam/image_array",  640 * 480 * 2);
 
@@ -228,7 +227,7 @@ namespace autorace {
 
                     if(-1 == xioctl(fd, VIDIOC_DQBUF, &buf))
                     {
-                        std::cout << "Retrieving Frame" << std::endl;
+                        std::cout << "USB Retrieving Frame" << std::endl;
                         return;
                     }
 
