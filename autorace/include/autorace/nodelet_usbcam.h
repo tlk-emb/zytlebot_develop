@@ -63,6 +63,8 @@ namespace autorace {
 
         ros::Publisher pub;
 
+        bool CbFlag;
+
     public:
         // コンストラクタ
         NodeletUsbcam() {
@@ -83,6 +85,7 @@ namespace autorace {
             n = getNodeHandle();
             pub = n.advertise<std_msgs::UInt8MultiArray>("/usbcam/image_array",  640 * 480 * 2);
 
+            CbFlag = false;
             n.getParam("/nodelet_autorace/autorace", params);
             usbcam_frame = (int)params["usbcam_frame"];
 
@@ -176,6 +179,7 @@ namespace autorace {
                 }
             }
 
+            cout << "5.5 end" << endl;
             // 6. Start Streaming
             {
                 struct 	v4l2_buffer buf;
@@ -204,7 +208,11 @@ namespace autorace {
             t1 = std::chrono::system_clock::now();
             // 7. Capture Image
             // 8. Store Image in OpenCV Data Type
-            {
+            if (CbFlag) {
+                cout << "usb Cb fail" << endl;
+            } else {
+                CbFlag = true;
+                cout << "usb Cb start" << endl;
                 {
                     struct v4l2_buffer buf;
                     buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -240,7 +248,8 @@ namespace autorace {
                     memcpy(&(camdata->data[0]), buffers[buf.index], 640 * 480 * 2);
                     pub.publish(camdata);
                 }
-
+                CbFlag = false;
+                cout << "CbFlag end" << endl;
             }
 
             t2 = std::chrono::system_clock::now();

@@ -80,6 +80,8 @@ namespace autorace {
 
         ros::Publisher pub;
 
+        bool CbFlag;
+
     public:
         // コンストラクタ
         NodeletPcam() {
@@ -102,6 +104,8 @@ namespace autorace {
             n.getParam("/nodelet_autorace/autorace", params);
 
             pcam_frame = (int)params["pcam_frame"];
+
+            CbFlag = false;
 
 
 
@@ -214,6 +218,8 @@ namespace autorace {
                 }
             }
 
+            cout << "pcam 5.5 end" << endl;
+
             // 6. Start Streaming
             {
                 struct 	v4l2_buffer buf;
@@ -247,7 +253,11 @@ namespace autorace {
 
         void imageCb(const ros::TimerEvent& event) {
             // 7. Capture Image
+            if (CbFlag) {
+                cout << "pcam Cb fail" << endl;
+            } else
             {
+                CbFlag = true;
                 fd_set fds;
                 FD_ZERO(&fds);
                 FD_SET(fd, &fds);
@@ -270,16 +280,16 @@ namespace autorace {
                     std::cout << "VIDIOC_QBUF" << std::endl;
                 }
 
-            }
 
 
             // 8. Store Image in OpenCV Data Type
-            {
                 for (int j = 0; j < num_planes; j++) {
                     memcpy(&(camdata->data[0]), buffers[buf.index].start[j], WIDTH * HEIGHT * 2);
                     pub.publish(camdata);
                     ROS_INFO("Pcam Published something!");
                 }
+
+                CbFlag = false;
             }
         }
     };
