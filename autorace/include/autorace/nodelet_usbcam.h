@@ -44,7 +44,7 @@ namespace autorace {
     class NodeletUsbcam : public nodelet::Nodelet {
 
     private:
-        unsigned char *buffers[4];
+        unsigned char *buffers[REQUEST_BUFFER_NUM];
 
         ros::NodeHandle n;
         int fd;
@@ -71,6 +71,12 @@ namespace autorace {
         }
 
         ~NodeletUsbcam() {
+            buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            buf.memory = V4L2_MEMORY_MMAP;
+            if (-1 == xioctl(fd, VIDIOC_STREAMOFF, &buf.type)) {
+                std::cout << "VIDIOC_STREAMOFF" << std::endl;
+            }
+
             for(int i = 0; i < got_buffer_num; i++){
                 if(munmap(buffers[i], 480 * 640 * 2) != 0){
                     cerr << "munmap failed" << endl;
@@ -239,14 +245,14 @@ namespace autorace {
                         return;
                     }
 
-                    cout << "buf.index : " << buf.index << endl;
+                    memcpy(&(camdata->data[0]), buffers[buf.index], 640 * 480 * 2);
+                    pub.publish(camdata);
 
                     // Connect buffer to queue for next capture.
                     if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
                         std::cout << "VIDIOC_QBUF" << std::endl;
                     }
-                    memcpy(&(camdata->data[0]), buffers[buf.index], 640 * 480 * 2);
-                    pub.publish(camdata);
+
                 }
                 CbFlag = false;
                 cout << "CbFlag end" << endl;
