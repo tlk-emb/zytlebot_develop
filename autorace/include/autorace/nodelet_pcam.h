@@ -42,14 +42,48 @@ struct buffer_addr_struct{
     size_t length[FMT_NUM_PLANES];
 } *buffers;
 
-static int xioctl(int fd, int request, void *arg){
+static int xioctl(int fd, int request, void *arg)
+{
     int r;
     do {
         r = ioctl (fd, request, arg);
         if (request == VIDIOC_DQBUF) {
             std::cout << "r : " << r << std::endl;
         }
+        if(errno == EAGAIN){
+            cout << "EAGAIN" << endl;
+        }else if(errno == EINVAL){
+            cout << "EINVAL" << endl;
+        }else if(errno == EIO){
+            cout << "EIO" << endl;
+        }else if(errno == EPIPE){
+            cout << "EPIPE" << endl;
+        }else if(errno == EACCES){
+            cout << "EACCESS" << endl;
+        }else if(errno == EBUSY){
+            cout << "EBUSY" << endl;
+        }else{
+            cout << "other error" << endl;
+        }
     } while (-1 == r && EINTR == errno);
+    if(r == -1){
+        cout << "loop breaked and error occurred" << endl;
+        if(errno == EAGAIN){
+            cout << "EAGAIN" << endl;
+        }else if(errno == EINVAL){
+            cout << "EINVAL" << endl;
+        }else if(errno == EIO){
+            cout << "EIO" << endl;
+        }else if(errno == EPIPE){
+            cout << "EPIPE" << endl;
+        }else if(errno == EACCES){
+            cout << "EACCESS" << endl;
+        }else if(errno == EBUSY){
+            cout << "EBUSY" << endl;
+        }else{
+            cout << "other error" << endl;
+        }
+    }
     return r;
 }
 
@@ -59,7 +93,6 @@ namespace autorace {
         ros::NodeHandle n;
 
     private:
-        std::thread working_thread_;
         unsigned char *buffer;
         int fd;
         struct v4l2_capability caps;
@@ -88,6 +121,10 @@ namespace autorace {
         }
 
         ~NodeletPcam() {
+            if (-1 == xioctl(fd, VIDIOC_STREAMOFF, &buf.type)) {
+                std::cout << "VIDIOC_STREAMOFF" << std::endl;
+            }
+
             for(int i = 0; i < 3; i++){
                 if(munmap(buffers[i].start[0], 480 * 640 * 2) != 0){
                     cerr << "pcam munmap failed" << endl;
@@ -270,9 +307,10 @@ namespace autorace {
                     return;
                 }
 
+
                 if (-1 == xioctl(fd, VIDIOC_DQBUF, &buf)) {
                     std::cout << "Pcam Retrieving Frame" << std::endl;
-                    return;
+                    // return;
                 }
                 // std::cout << "buf.index " << buf.index << std::endl;
                 // Connect buffer to queue for next capture.
