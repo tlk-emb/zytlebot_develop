@@ -307,7 +307,14 @@ namespace autorace {
                     return;
                 }
 
-                
+
+
+                memset(&buf, 0, sizeof(buf));
+                memset(planes, 0, sizeof(planes));
+                buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+                buf.memory = V4L2_MEMORY_MMAP;
+                buf.m.planes = planes;
+                buf.length = FMT_NUM_PLANES;
 
                 if (-1 == xioctl(fd, VIDIOC_DQBUF, &buf)) {
                     std::cout << "Pcam Retrieving Frame" << std::endl;
@@ -321,13 +328,11 @@ namespace autorace {
                     ROS_INFO("Pcam Published something!");
                 }
 
-                // std::cout << "buf.index " << buf.index << std::endl;
+                std::cout << "buf.index " << buf.index << std::endl;
                 // Connect buffer to queue for next capture.
                 if (-1 == xioctl(fd, VIDIOC_QBUF, &buf)) {
                     std::cout << "VIDIOC_QBUF" << std::endl;
                 }
-
-
 
                 CbFlag = false;
             }
