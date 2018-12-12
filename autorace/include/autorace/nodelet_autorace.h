@@ -169,6 +169,8 @@ namespace autorace{
         std::string nextSearchObject;
 
         bool RED_OBJ_SEARCH;
+        int RED_DETECT_NUM;
+
         bool FIGURE_SEARCH;
 
         int figure_search_limit;
@@ -771,6 +773,7 @@ namespace autorace{
 
             SW_CHANGE_PHASE = autorace["sw_change_phase"].string_value();
 
+            RED_DETECT_NUM = autorace["red_detect_num"].int_value();
             // 赤色検出
             RED_HIGH_H = autorace["red_high_h"].int_value();
             RED_HIGH_S = autorace["red_high_s"].int_value();
@@ -2054,7 +2057,7 @@ namespace autorace{
             } else {
                 Right_LED = false;
             }
-            if (fractionNum > 500 && RED_OBJ_SEARCH) {
+            if (fractionNum > RED_DETECT_NUM && RED_OBJ_SEARCH) {
                 int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
                 int tileType = map_data[next_tile_y][next_tile_x][0];
 
