@@ -1348,7 +1348,7 @@ namespace autorace{
         // 決め打ちで左カーブ
         // 入射時の速度でカーブ時間を変更
         void leftTurn() {
-            Right_LED = true; // LED                Right_LED_before = false;
+            Left_LED = true; // LED
             twist.linear.x = LEFT_CURVE_VEL;
             twist.angular.z = LEFT_CURVE_ROT;
             ros::Time now = ros::Time::now();
