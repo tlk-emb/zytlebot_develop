@@ -248,7 +248,7 @@ namespace autorace{
                 // 3回連続で見つけたり見失ったらフラグを変更
                 if (find_count >= 3) {
                     find_flag = true;
-                } else if (find_count <= -5) {
+                } else if (find_count <= -3) {
                     find_flag = false;
                 }
 
