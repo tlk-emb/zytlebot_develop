@@ -99,13 +99,9 @@ typedef struct straight {
 // map_data[y][x][0]がタイルの種類
 // map_data[y][x][1]が向きを表している
 // 向きは1がデータ画像のとおりで、0~3で右回りに表現されている
-int map_data[7][5][2] = {{{3, 0}, {4, 0}, {7, 2}, {4, 0}, {3, 1}},
-                         {{6, 1}, {0, 0}, {1, 1}, {0, 0}, {6, 1}},
-                         {{4, 1}, {0, 0}, {5, 1}, {0, 0}, {4, 1}},
-                         {{7, 1}, {2, 0}, {8, 0}, {2, 2}, {7, 3}},
-                         {{4, 1}, {0, 0}, {5, 3}, {0, 0}, {4, 1}},
-                         {{6, 1}, {0, 0}, {1, 3}, {0, 0}, {6, 1}},
-                         {{3, 3}, {4, 0}, {7, 0}, {4, 0}, {3, 2}}};
+int map_data[2][1][2] = {{{1, 3}},
+                         {{6, 1}},
+                         {{1, 1}}};
 
 cv::Mat camera_mtx;
 cv::Mat camera_dist;
@@ -213,6 +209,8 @@ namespace autorace{
         bool crosswalkFlag;
 
         bool rightcurveFlag;
+
+        bool turnFlag;
 
         // 人形を見つけているかどうか
         bool findFigureFlag;
@@ -593,8 +591,8 @@ namespace autorace{
                         double degree_average = detectLane(left_roi);
                         detected_angle = degree_average;
                         // レーン検出してdetected_lineを更新、平均角度を求める
-                        searchRedObs(birds_eye);
-                        if (now_phase == "straight" && FIGURE_SEARCH)searchFigure(birds_eye);
+                        // searchRedObs(birds_eye);
+                        // if (now_phase == "straight" && FIGURE_SEARCH)searchFigure(birds_eye);
                         intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
                         searchObject();
                         lineTrace(degree_average, road_white_binary);
@@ -625,6 +623,8 @@ namespace autorace{
                     limitedTwistPub();
                 } else if (now_phase == "crosswalk") {
                     crosswalkRedStop();
+                } else if (now_phase == "u_turn") {
+                    uTurn();
                 }
             } else {
                 searchFigure(birds_eye);
@@ -828,6 +828,7 @@ namespace autorace{
             intersectionAfterCrosswalk = false;
             crosswalkFlag = false;
             rightcurveFlag = false;
+            turnFlag = false;
             findFigureFlag = false;
 
             searchType == "";
@@ -903,6 +904,7 @@ namespace autorace{
             reachBottomLeftLaneStraightEnd = false;
             crosswalkFlag = false;
             rightcurveFlag = false;
+            turnFlag = false;
             line_lost_time = ros::Time::now();
 
             figure_search_phase_limit = false;
@@ -987,22 +989,14 @@ namespace autorace{
             // タイルと入射角の差　どの方角からタイルに侵入するかを判別
             int differenceDirection = (tileRot - now_dir + 4) % 4;
             // 交差点で次にどの方角へ向かうかが決められているので、それと現在の方角の差をとるために使う
-            int nextDirection = (intersectionDir[nowIntersectionCount] - now_dir + 4) % 4;
+            int nextDirection = now_dir;
 
-            if (tileType == 3 && differenceDirection== 2) {
-                // nextTileを検索
-                // カーブを右に曲がるならfind_curveを探索
+            // 2tile_demol
+            if (tileType == 1) {
                 if (rightcurveFlag) {
-                    curveAfterCrosswalk = true;
-                    now_dir = (now_dir + 1) % 4;
-                    changePhase("turn_right");
-                    setNextTile();
-                }
-            } else if (tileType == 3 && differenceDirection == 3) {
-                // 左カーブ
-                if (now - line_lost_time > ros::Duration(LEFT_CURVE_START_LOST_LINE_TIME)) {
-                    now_dir = (now_dir + 3) % 4;
-                    changePhase("turn_left");
+                    curveAfterCrosswalk = false;
+                    now_dir = (now_dir + 2) % 4;
+                    changePhase("u_turn");
                     setNextTile();
                 }
             } else if (tileType == 2 || tileType == 5 || tileType == 6) {
@@ -1010,78 +1004,6 @@ namespace autorace{
                 if (crosswalkFlag) {
                     std::cout << "横断歩道発見" << std::endl;
                     changePhase("crosswalk");
-                }
-            } else if (intersectionDetectionFlag) {
-                if (tileType == 7) { // T字路
-                    if (differenceDirection == 3) {
-                        // T字路に左から入る
-                        if (nextDirection == 0) { // 直進
-                            nowIntersectionCount++;
-                            changePhase("straight");
-                            setNextTile();
-
-                        } else { // 右に曲がる
-                            curveAfterCrosswalk = true;
-                            nowIntersectionCount++;
-                            now_dir = (now_dir + 1) % 4;
-                            changePhase("turn_right");
-                            setNextTile();
-
-                        }
-                    } else if (differenceDirection == 0) {
-                        // T字路の下から突き当りに向かって入った場合
-                        if (nextDirection == 1) { // 右に曲がる
-                            curveAfterCrosswalk = true;
-                            nowIntersectionCount++;
-                            now_dir = (now_dir + 1) % 4;
-                            changePhase("turn_right");
-                            setNextTile();
-
-                        } else { // 左に曲がる
-                            nowIntersectionCount++;
-                            now_dir = (now_dir + 3) % 4;
-                            changePhase("turn_left");
-                            setNextTile();
-
-                        }
-                    } else { // T字路に右から入った場合
-                        if (nextDirection == 0) { // 直進 左車線が消えるため、特殊な動作をさせる
-                            nowIntersectionCount++;
-                            changePhase("intersection_straight");
-                            setNextTile();
-
-                        }
-                        if (nextDirection == 3) { // 左に曲がる
-                            nowIntersectionCount++;
-                            now_dir = (now_dir + 3) % 4;
-                            changePhase("turn_left");
-                            setNextTile();
-
-                        }
-
-                    }
-
-                } else if (tileType == 8) {
-                    // 十字路
-                    if (nextDirection == 1) {
-                        intersectionAfterCrosswalk = true;
-                        nowIntersectionCount++;
-                        std::cout << "十字路を右に曲がる" << std::endl;
-                        now_dir = (now_dir + 1) % 4;
-                        changePhase("turn_right");
-                        setNextTile();
-                    } else if (nextDirection == 3) {
-                        intersectionAfterCrosswalk = true;
-                        nowIntersectionCount++;
-                        now_dir = (now_dir + 3) % 4;
-                        changePhase("turn_left");
-                        setNextTile();
-                    } else {
-                        intersectionAfterCrosswalk = true;
-                        nowIntersectionCount++;
-                        changePhase("intersection_straight");
-                        setNextTile();
-                    }
                 }
             }
         }
@@ -1228,9 +1150,9 @@ namespace autorace{
                 int nextTile = map_data[next_y][next_x][0];
                 // road1,4(ただの直線)でないかチェック
                 if (nextTile == 2 || nextTile == 5 || nextTile == 6) {
-                    if (!intersectionAfterCrosswalk) { // intersectionの直後の交差点は無視する
+                    // if (!intersectionAfterCrosswalk) { // intersectionの直後の交差点は無視する
                         break;
-                    }
+                    // }
                 } else if (nextTile == 3 || nextTile == 7 || nextTile == 8) {
                     break;
                 }
@@ -1260,8 +1182,15 @@ namespace autorace{
             int differenceDirection = (tileRot - now_dir + 4) % 4;
 
             std_msgs::String how_signal_search;
-            how_signal_search.data = "-1";
+            how_signal_search.data = "0";
 
+            if (searchType == "crosswalk") {
+                searchType = "right_curve";
+            } else {
+                searchType = "crosswalk";
+            }
+
+            /*
             if (tileType == 6) {
                 // 外周横断歩道
                 searchType = "crosswalk";
@@ -1288,6 +1217,7 @@ namespace autorace{
             } else {
                 searchType = "";
             }
+            */
 
             signal_search_.publish(how_signal_search);
         }
@@ -1621,6 +1551,33 @@ namespace autorace{
                 twist.linear.x = 0.1;
                 twist.angular.z =  (AVOID_OBSTACLE_ROT * -1) / 5;
                 Left_LED = false; // LED
+            } else {
+                changePhase("search_line");
+            }
+            limitedTwistPub();
+        }
+
+        // 決め打ちで右回りにuターン
+        void  uTurn() {
+            ros::Time now = ros::Time::now();
+            //　右車線に向けて回転
+            if (now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME)) {
+                twist.linear.x = AVOID_OBSTACLE_VEL;
+                twist.angular.z = AVOID_OBSTACLE_ROT;
+                Right_LED = true; // LED
+            } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME + AVOID_ROT_STRAIGHT))
+            { // 右車線に向けて直進
+                twist.linear.x = AVOID_OBSTACLE_VEL;
+                twist.angular.z = 0;
+            } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT))
+            { // 右車線に対して水平になるように回転
+                twist.linear.x = AVOID_OBSTACLE_VEL;
+                twist.angular.z = AVOID_OBSTACLE_ROT;
+                Right_LED = false; // LED
+            } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_BEFORE_STRAIGHT_MARGIN_TIME))
+            { // 直進向く寸前に反動を消す
+                twist.linear.x = AVOID_OBSTACLE_VEL;
+                twist.angular.z = AVOID_OBSTACLE_ROT / 5;
             } else {
                 changePhase("search_line");
             }
@@ -2215,6 +2172,7 @@ namespace autorace{
             } else {
                 doSearch = false;
             }
+
 
             std::cout << "現在" << searchType << "検索中" << std::endl;
 
