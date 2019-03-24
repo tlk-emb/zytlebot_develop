@@ -17,7 +17,6 @@
 
 #include "signal_lib/feature.h"
 #include "signal_lib/forest.h"
-#include "signal_lib/window_candidate.h"
 #include "signal_lib/hw.h"
 #include "std_msgs/String.h"
 
