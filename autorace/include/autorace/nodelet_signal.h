@@ -30,14 +30,14 @@
 using namespace std;
 using namespace cv;
 
-map<int, vector<pair<int, int> > > mp[2];
-map<int, vector<pair<int, int> > > original_mp[2];
-set<int> widthkind[2];
+map<int, vector<pair<int, int> > > mp;
+map<int, vector<pair<int, int> > > original_mp;
+set<int> widthkind;
 
-int sx_min[2] = {999, 999};
-int sy_min[2] = {999, 999};
-int ex_max[2] = {-1, -1};
-int ey_max[2] = {-1, -1};
+int sx_min = 999;
+int sy_min = 999;
+int ex_max = -1;
+int ey_max = -1;
 #define WINDOW_WIDTH 64
 #define WINDOW_HEIGHT 32
 bool imgout = false;
@@ -50,38 +50,7 @@ float proba_thresh = 0.65;
 unsigned short sw_feature[FEATURE_SIZE*4] = {0};
 unsigned short hw_feature[FEATURE_SIZE*4] = {0};
 
-
-void check_window(){
-    for(int i = 0; i < window_num; i++){
-        int sy = w[i][0][0];
-        int sx = w[i][1][0];
-        int ey = w[i][0][1];
-        int ex = w[i][1][1];
-        // cv::Mat cropped(frame, cv::Rect(sx, sy, ex - sx, ey - sy));
-        widthkind[0].insert(ex-sx);
-        sx_min[0] = min(sx_min[0], sx);
-        sy_min[0] = min(sy_min[0], sy);
-        ex_max[0] = max(ex_max[0], ex);
-        ey_max[0] = max(ey_max[0], ey);
-    }
-
-    for(int i = 0; i < window_num; i++){
-        //(old_x - sx_min) * ratio
-        int sy = w[i][0][0];
-        int sx = w[i][1][0];
-        int ey = w[i][0][1];
-        int ex = w[i][1][1];
-
-        int original_width = ex - sx;
-        int ssy = (int)((float) (sy - sy_min[0]) * (float)WINDOW_WIDTH/original_width);
-        int ssx = (int)((float) (sx - sx_min[0]) * (float)WINDOW_WIDTH/original_width);
-        mp[0][original_width].push_back(make_pair(ssx, ssy));
-        //store original coordinate
-        original_mp[0][original_width].push_back(make_pair(sx, sy));
-    }
-}
-
-void check_window2(std::string project_folder){
+void check_window(std::string project_folder){
 
     ifstream fin(project_folder + "/signal.json" );
     if( !fin ){
@@ -111,21 +80,21 @@ void check_window2(std::string project_folder){
     int cross_signal_height_upper = params["cross_signal_height_upper"].int_value();
     int cross_signal_height_step = params["cross_signal_height_step"].int_value();
 
-    sx_min[1] = cross_signal_range_sx;
-    sy_min[1] = cross_signal_range_sy;
+    sx_min = cross_signal_range_sx;
+    sy_min = cross_signal_range_sy;
     for(int height = 20; height < cross_signal_height_upper; height+=cross_signal_height_step){
         int width = height * 2;
-        widthkind[1].insert(width);
+        widthkind.insert(width);
         for(int y = cross_signal_range_sy; y <= cross_signal_range_ey; y+=cross_signal_y_step){
             for(int x = cross_signal_range_sx; x <= cross_signal_range_ex; x+=cross_signal_x_step){
                 int original_width = width;
-                ex_max[1] = max(ex_max[1], x + width);
-                ey_max[1] = max(ey_max[1], y + height);
+                ex_max = max(ex_max, x + width);
+                ey_max = max(ey_max, y + height);
                 int ssy = (int)((float) (y - cross_signal_range_sy) * (float)WINDOW_WIDTH/original_width);
                 int ssx = (int)((float) (x - cross_signal_range_sx) * (float)WINDOW_WIDTH/original_width);
-                mp[1][original_width].push_back(make_pair(ssx, ssy));
+                mp[original_width].push_back(make_pair(ssx, ssy));
                 //store original coordinate
-                original_mp[1][original_width].push_back(make_pair(x, y));
+                original_mp[original_width].push_back(make_pair(x, y));
             }
         }
     }
@@ -140,8 +109,6 @@ namespace autorace{
 
         ros::Publisher red_flag_;
 
-
-        int window_mode;
         int how_search; // -1で探さない 0で外周 1で交差点
         bool find_flag;
         int find_count;
@@ -159,7 +126,6 @@ namespace autorace{
         }
 
         void onInit() {
-            window_mode = 0;
             how_search = 0;
             cout << "nodelet_signal start" << endl;
 
@@ -168,8 +134,7 @@ namespace autorace{
             nh_ = getNodeHandle();
             nh_.getParam("/nodelet_autorace/autorace", ros_params);
 
-            check_window();
-            check_window2((std::string)ros_params["project_folder"]);
+            check_window((std::string)ros_params["project_folder"]);
 
 
             // TODO subscribe先はtopicに応じて変更
@@ -211,10 +176,6 @@ namespace autorace{
                 memcpy(baseImage.data, &(msg->data[0]), 640 * 480 * 2);
                 cv::cvtColor(baseImage, dstimg, cv::COLOR_YUV2BGR_YUYV);
 
-                // TODO receive window_mode
-                if (how_search == 0) window_mode = 0;
-                if (how_search == 1) window_mode = 1;
-                // window_mode = 0 or 1
                 // TODO show receive window mode
 
                 // baseImageをなんか処理する
@@ -227,7 +188,7 @@ namespace autorace{
                 cv::Mat frame_copy = dstimg.clone();
 
                 //process the current frame
-                auto rst = test_one_frame(dstimg, window_mode);
+                auto rst = test_one_frame(dstimg);
 
                 bool now_find = rst.size() > 0;
 
@@ -350,13 +311,13 @@ namespace autorace{
             *time3 += (long double)std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count()/1000;
         }
 
-        vector<pair<vector<int>, float>> test_one_frame(Mat frame, int mode){
+        vector<pair<vector<int>, float>> test_one_frame(Mat frame){
             vector<pair<vector<int>, float>> rst;
             std::chrono::system_clock::time_point  t1, t2, t3, t4, t5, t6, t7;
 
             t1 = std::chrono::system_clock::now();
             //1. crop use frame
-            Mat rgb(frame, cv::Rect(sx_min[mode], sy_min[mode], ex_max[mode] - sx_min[mode], ey_max[mode] - sy_min[mode]));
+            Mat rgb(frame, cv::Rect(sx_min, sy_min, ex_max - sx_min, ey_max - sy_min));
             //2. convert to HLS image
             Mat hls;
             cv::cvtColor(rgb, hls, CV_BGR2HSV);
@@ -368,19 +329,19 @@ namespace autorace{
             Mat gray_each_window[4];
             //3. resize for each window kind
             int cnt = 0;
-            for(auto itr = widthkind[mode].begin(); itr != widthkind[mode].end(); ++itr) {
+            for(auto itr = widthkind.begin(); itr != widthkind.end(); ++itr) {
                 int width = *itr;
                 //TODO:crop use frame
                 cv::resize(rgb, rgb_each_window[cnt++], cv::Size(), (float)WINDOW_WIDTH/(float)width , (float)WINDOW_WIDTH/(float)width, INTER_NEAREST);
             }
             cnt = 0;
-            for(auto itr = widthkind[mode].begin(); itr != widthkind[mode].end(); ++itr) {
+            for(auto itr = widthkind.begin(); itr != widthkind.end(); ++itr) {
                 int width = *itr;
                 //TODO:crop use frame
                 cv::resize(hls, hls_each_window[cnt++], cv::Size(), (float)WINDOW_WIDTH/(float)width , (float)WINDOW_WIDTH/(float)width, INTER_NEAREST);
             }
             cnt = 0;
-            for(auto itr = widthkind[mode].begin(); itr != widthkind[mode].end(); ++itr) {
+            for(auto itr = widthkind.begin(); itr != widthkind.end(); ++itr) {
                 int width = *itr;
                 //TODO:crop use frame
                 cv::resize(gray, gray_each_window[cnt++], cv::Size(), (float)WINDOW_WIDTH/(float)width , (float)WINDOW_WIDTH/(float)width, INTER_NEAREST);
@@ -393,9 +354,9 @@ namespace autorace{
             double time1 = 0;
             double time2 = 0;
             double time3 = 0;
-            for(auto itr = widthkind[mode].begin(); itr != widthkind[mode].end(); ++itr) {
+            for(auto itr = widthkind.begin(); itr != widthkind.end(); ++itr) {
                 int width = *itr;
-                auto windows = mp[mode][width];
+                auto windows = mp[width];
                 //process 4 window images for each iteration
                 for(int i = 0; i*4 < windows.size(); i++){
                     int process_window_num = min(i*4+3, (int)windows.size()-1) - (i*4) + 1; //maximum 4
@@ -410,8 +371,8 @@ namespace autorace{
                     // imwrite("wind/img" + to_string(test_count) + ".png", rgb_test);
                     for(int j = 0; j < process_window_num; j++){
                         if(result[j] >= proba_thresh){
-                            int original_window_sx = original_mp[mode][width][i*4+j].first;
-                            int original_window_sy = original_mp[mode][width][i*4+j].second;
+                            int original_window_sx = original_mp[width][i*4+j].first;
+                            int original_window_sy = original_mp[width][i*4+j].second;
                             int original_window_ex = original_window_sx + width;
                             int original_window_ey = original_window_sy + width/2;
                             vector<int> coord = {original_window_sx, original_window_sy, original_window_ex, original_window_ey};
