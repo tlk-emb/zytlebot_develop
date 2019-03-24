@@ -1149,7 +1149,7 @@ namespace autorace{
 
                 int nextTile = map_data[next_y][next_x][0];
                 // road1,4(ただの直線)でないかチェック
-                if (nextTile == 2 || nextTile == 5 || nextTile == 6) {
+                if (nextTile == 1 || nextTile == 2 || nextTile == 5 || nextTile == 6) {
                     // if (!intersectionAfterCrosswalk) { // intersectionの直後の交差点は無視する
                         break;
                     // }
@@ -1184,40 +1184,14 @@ namespace autorace{
             std_msgs::String how_signal_search;
             how_signal_search.data = "0";
 
-            if (searchType == "crosswalk") {
-                searchType = "right_curve";
-            } else {
-                searchType = "crosswalk";
-            }
 
-            /*
             if (tileType == 6) {
                 // 外周横断歩道
                 searchType = "crosswalk";
                 how_signal_search.data = "0";
-            } else if (tileType == 2 || tileType == 5) {
-                // 交差点横断歩道
-                searchType = "crosswalk";
-                how_signal_search.data = "1";
-            } else if (tileType == 7) { // T字路
-                if(differenceDirection == 3) {
-                    // T字路に左から入る
-                    searchType = "right_T";
-                } else if(differenceDirection == 0) {
-                    // T字路の下から突き当りに向かって入った場合
-                    searchType = "under_T";
-                } else {
-                    // T字路に右から入った場合
-                    searchType = "left_T";
-                }
-            } else if (tileType == 8) {
-                searchType = "intersection";
-            } else if (tileType == 3) {
-                searchType = "right_curve";
             } else {
                 searchType = "";
             }
-            */
 
             signal_search_.publish(how_signal_search);
         }
