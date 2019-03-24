@@ -993,7 +993,7 @@ namespace autorace{
 
             // 2tile_demol
             if (tileType == 1) {
-                if (rightcurveFlag) {
+                if (now - line_lost_time > ros::Duration(LEFT_CURVE_START_LOST_LINE_TIME)) {
                     curveAfterCrosswalk = false;
                     now_dir = (now_dir + 2) % 4;
                     changePhase("u_turn");
