@@ -81,7 +81,7 @@ void check_window(std::string project_folder){
 
     sx_min = cross_signal_range_sx;
     sy_min = cross_signal_range_sy;
-    for(int height = 20; height < cross_signal_height_upper; height+=cross_signal_height_step){
+    for(int height = 60; height < cross_signal_height_upper; height+=cross_signal_height_step){
         int width = height * 2;
         widthkind.insert(width);
         for(int y = cross_signal_range_sy; y <= cross_signal_range_ey; y+=cross_signal_y_step){
