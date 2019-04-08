@@ -2,9 +2,9 @@ autorace: # this is yaml file !!
 # not use
 # plese use autorace.json
   next_x: 0
-  next_y: 1
+  next_y: 0
   start_dir: 2
-  red_obj_search: true
+  red_obj_search: false
   burger_max_lin_vel: 0.15
   burger_max_ang_vel: 2.84
   birdseye_length: 100

@@ -597,14 +597,15 @@ namespace autorace{
                         // レーン検出してdetected_lineを更新、平均角度を求める
                         // searchRedObs(birds_eye);
                         // if (now_phase == "straight" && FIGURE_SEARCH)searchFigure(birds_eye);
-                        intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
+                        // intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
+                        crosswalkRedStop();
                         searchObject();
                         lineTrace(degree_average, road_white_binary);
                         limitedTwistPub();
                     }
                 } else if (now_phase == "trace_right_curve") {
                     rightCurveTrace(road_white_binary);
-                } else if (now_phase == "search_line") {
+                } else if (now_phase == "1") {
                     double degree_average = detectLane(left_roi);
                     searchLine();
                 } else if (now_phase == "search_right_lane_right_T") {
@@ -1003,11 +1004,8 @@ namespace autorace{
 
             // 2tile_demol
             if (tileType == 1) {
-                if (now - line_lost_time > ros::Duration(LEFT_CURVE_START_LOST_LINE_TIME)) {
-                    curveAfterCrosswalk = false;
-                    now_dir = (now_dir + 2) % 4;
+                if (now - line_lost_time > ros::Duration(RIGHT_CURVE_START_LOST_LINE_TIME)) {
                     changePhase("u_turn");
-                    setNextTile();
                 }
             } else if (tileType == 2 || tileType == 5 || tileType == 6) {
                 // 横断歩道
@@ -1192,16 +1190,7 @@ namespace autorace{
             int differenceDirection = (tileRot - now_dir + 4) % 4;
 
             std_msgs::String how_signal_search;
-            how_signal_search.data = "0";
-
-
-            if (tileType == 6) {
-                // 外周横断歩道
-                searchType = "crosswalk";
-                how_signal_search.data = "0";
-            } else {
-                searchType = "";
-            }
+            how_signal_search.data = "1";
 
             signal_search_.publish(how_signal_search);
         }
@@ -1217,13 +1206,11 @@ namespace autorace{
                 limitedTwistPub();
                 if (now - phaseStartTime > ros::Duration(20.0)) {
                     changePhase("straight");
-                    twist.linear.x = 1.0;
-                    setNextTile();
+                    twist.linear.x = 0.8;
                 }
             } else {
                 changePhase("straight");
                 twist.linear.x = 1.0;
-                setNextTile();
             }
         }
 
