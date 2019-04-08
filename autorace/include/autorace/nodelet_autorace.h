@@ -290,6 +290,9 @@ namespace autorace{
 
         //////////
 
+        // std_outのフラグ（ssh切るときこれを止めないと死ぬ？）
+        bool STD_OUT;
+
 
 #if !DEBUG
         // devmem
@@ -333,8 +336,8 @@ namespace autorace{
                 red_flag = false;
             }
 
-            cout << msg.data << endl;
-            cout << red_flag << endl;
+            if(STD_OUT) cout << msg.data << endl;
+            if(STD_OUT) cout << red_flag << endl;
         }
 
         void onInit() {
@@ -366,7 +369,7 @@ namespace autorace{
             virt_addr2 = map_base2 + (physical_address2 & MAP_MASK);
 #endif
 
-            cout << "Start nodelet" << endl;
+            if(STD_OUT) cout << "Start nodelet" << endl;
 
 
             // init start
@@ -418,12 +421,12 @@ namespace autorace{
                 Left_LED_before = true;
                 Right_LED_before = true;
             } else if (!Left_LED_before && Left_LED) {
-                cout << "Left LED Lightning!!!!!!" << endl;
+                if(STD_OUT) cout << "Left LED Lightning!!!!!!" << endl;
                 *((unsigned char *) virt_addr2) = (char)0x20;
                 Left_LED_before = true;
                 Right_LED_before = false;
             } else if (!Right_LED_before && Right_LED) {
-                cout << "Right LED Lightning!!!!!!" << endl;
+                if(STD_OUT) cout << "Right LED Lightning!!!!!!" << endl;
                 *((unsigned char *) virt_addr2) = (char)0x10;
                 Right_LED_before = true;
                 Left_LED_before = false;
@@ -447,9 +450,9 @@ namespace autorace{
             void imageCb(const std_msgs::UInt8MultiArrayPtr &msg) {
 #endif
 #if !DEBUG
-            cout << "Left LED : " << Left_LED << endl;
-            cout << "Right LED : " << Right_LED << endl;
-            cout << "Brake LED : " << Brake_LED << endl;
+            if(STD_OUT) cout << "Left LED : " << Left_LED << endl;
+            if(STD_OUT) cout << "Right LED : " << Right_LED << endl;
+            if(STD_OUT) cout << "Brake LED : " << Brake_LED << endl;
 
             unsigned long read_result = *((unsigned char *) virt_addr);
             int res = (int)read_result;
@@ -461,13 +464,14 @@ namespace autorace{
             printf("%d, %d, %d, %d, %d\n", res, sw0, sw1, sw2, sw3);
 
             if (sw1 && !(sw1_flag)) {
-                cout << "スイッチでSet next Tile!" << endl;
+                if(STD_OUT) cout << "スイッチでSet next Tile!" << endl;
                 skipNextSearch();
                 sw1_flag = true;
             } else if (!sw1) {
                 sw1_flag = false;
             }
 
+            /*
             if (sw2 && !(sw2_flag)) {
                 cout << "フェーズ変更！"<< SW_CHANGE_PHASE << endl;
                 changePhase(SW_CHANGE_PHASE);
@@ -475,9 +479,10 @@ namespace autorace{
             } else if (!sw2) {
                 sw2_flag = false;
             }
+             */
 
             if (sw3 && !(sw3_flag)) {
-                cout << "load Json!" << endl;
+                if(STD_OUT) cout << "load Json!" << endl;
                 setParam();
                 sw3_flag = true;
             } else if (!sw3) {
@@ -488,7 +493,7 @@ namespace autorace{
                 twist.linear.x = 0.0;
                 twist.angular.z = 0.0;
                 limitedTwistPub();
-                cout << "autorace stop"  << endl;
+                if(STD_OUT) cout << "autorace stop"  << endl;
                 return;
             }
 #endif
@@ -558,7 +563,7 @@ namespace autorace{
             find_left_line = false;
 
             system("clear");
-            std::cout << "現在のフェーズ : " << now_phase << std::endl;
+            if(STD_OUT) std::cout << "現在のフェーズ : " << now_phase << std::endl;
             std::string direction;
             switch (now_dir) {
                 case 0: direction = "南";
@@ -573,13 +578,12 @@ namespace autorace{
                     break;
             }
 
-            std::cout << "次の目的地 : x = " << next_tile_x << " y =  " << next_tile_y << " type=" << map_data[next_tile_y][next_tile_x][0] << std::endl;
-            std::cout << "現在の進行方向  " << direction << std::endl;
+            if(STD_OUT) std::cout << "次の目的地 : x = " << next_tile_x << " y =  " << next_tile_y << " type=" << map_data[next_tile_y][next_tile_x][0] << std::endl;
+            if(STD_OUT) std::cout << "現在の進行方向  " << direction << std::endl;
 
 
             // ---------------controller----------------
             updateObject();
-
 
 
             if (!findFigureFlag) {
@@ -631,13 +635,16 @@ namespace autorace{
             }
 
             // ---------------controller end----------------
-            std::cout << "走行距離 : " << mileage << " 合計 " << phaseRunMileage << std::endl;
-            std::cout << "実行時間 : " << ros::Time::now().toSec() - processingStartTime.toSec() << "s" << std::endl;
-            std::cout << "周期時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
+            if(STD_OUT) {
+                std::cout << "走行距離 : " << mileage << " 合計 " << phaseRunMileage << std::endl;
+                std::cout << "実行時間 : " << ros::Time::now().toSec() - processingStartTime.toSec() << "s"
+                          << std::endl;
+                std::cout << "周期時間 : " << ros::Time::now().toSec() - cycleTime.toSec() << "s" << std::endl;
+            }
             // cycleTimeの更新
             cycleTime = ros::Time::now();
 
-            std::cout << "速度     : " << twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
+            if(STD_OUT) std::cout << "速度     : " << twist.linear.x << " 角度 : " << twist.angular.z << std::endl;
 
             // 以下デバッグ出力
 
@@ -675,19 +682,19 @@ namespace autorace{
                 intersectionDir[cnt++] = num;
             }
             for (int i = 0; i < cnt; i++) {
-                std::cout << intersectionDir[i] << std::endl;
+                if(STD_OUT) std::cout << intersectionDir[i] << std::endl;
             }
 
 
 
-            cout << "json before load" << endl;
+            if(STD_OUT) cout << "json before load" << endl;
             ifstream fin((std::string) params["project_folder"] + "/autorace.json" );
             if( !fin ){
-                cout << "json load failed" << endl;
+                if(STD_OUT) cout << "json load failed" << endl;
                 return;
             }
 
-            cout << "json loaded" << endl;
+            if(STD_OUT) cout << "json loaded" << endl;
 
             stringstream strstream;
             strstream << fin.rdbuf();
@@ -709,7 +716,7 @@ namespace autorace{
 
             // 定数をセット
 
-            cout << "json parse start" << endl;
+            if(STD_OUT) cout << "json parse start" << endl;
 
             Hue_l = autorace["hue_l"].int_value();
             Hue_h = autorace["hue_h"].int_value();
@@ -723,7 +730,7 @@ namespace autorace{
             now_dir = autorace["start_dir"].int_value();
 
 
-            cout << "json parse 2" << endl;
+            if(STD_OUT) cout << "json parse 2" << endl;
 
             BURGER_MAX_LIN_VEL = autorace["burger_max_lin_vel"].number_value();
             BURGER_MAX_ANG_VEL = autorace["burger_max_ang_vel"].number_value();
@@ -750,7 +757,7 @@ namespace autorace{
             RED_OBJ_SEARCH = autorace["red_obj_search"].bool_value();
             FIGURE_SEARCH = autorace["figure_search"].bool_value();
 
-            cout << "json parse 3" << endl;
+            if(STD_OUT) cout << "json parse 3" << endl;
 
             AVOID_ROT_STRAIGHT = autorace["avoid_rot_straight"].number_value();
             AVOID_STRAIGHT_TIME = autorace["avoid_straight_time"].number_value();
@@ -792,7 +799,10 @@ namespace autorace{
             SKIN_LOW_S = autorace["skin_low_s"].int_value();
             SKIN_LOW_V = autorace["skin_low_v"].int_value();
 
-            cout << "json parse end" << endl;
+
+            STD_OUT = autorace["std_out"].bool_value();
+
+            if(STD_OUT) cout << "json parse end" << endl;
 
             template_right_T = cv::imread((std::string) params["project_folder"] + "/image/right_T.png", 1);
             template_left_T = cv::imread((std::string) params["project_folder"] + "/image/left_T.png", 1);
@@ -878,15 +888,15 @@ namespace autorace{
             setSearchType();
 
             // param set end
-            cout << "Hue_h" << Hue_h << endl;
-            cout << "red_obj_search" << RED_OBJ_SEARCH << endl;
-            cout << "burager_max_lin_vel" << BURGER_MAX_LIN_VEL << endl;
+            if(STD_OUT) cout << "Hue_h" << Hue_h << endl;
+            if(STD_OUT) cout << "red_obj_search" << RED_OBJ_SEARCH << endl;
+            if(STD_OUT) cout << "burager_max_lin_vel" << BURGER_MAX_LIN_VEL << endl;
         }
 
 
         // phaseの変更ともろもろの値の初期化
         void changePhase(std::string next_phase) {
-            std::cout << "change phase!" << next_phase << std::endl;
+            if(STD_OUT) std::cout << "change phase!" << next_phase << std::endl;
             // 前のphaseの結果によって変更される値を処理する
             now_phase = next_phase;
             phaseStartTime = ros::Time::now();
@@ -955,9 +965,9 @@ namespace autorace{
                 }
             }
 
-            std::cout << "左車線の検知 : " << find_left_line << " | 検知数 = " << average_cnt << std::endl;
-            std::cout << "推定された左車線の位置 : " << detected_line_x << std::endl;
-            std::cout << "全体の傾き : " << degree_average << std::endl;
+            if(STD_OUT) std::cout << "左車線の検知 : " << find_left_line << " | 検知数 = " << average_cnt << std::endl;
+            if(STD_OUT) std::cout << "推定された左車線の位置 : " << detected_line_x << std::endl;
+            if(STD_OUT) std::cout << "全体の傾き : " << degree_average << std::endl;
 
             return degree_average;
         }
@@ -1002,7 +1012,7 @@ namespace autorace{
             } else if (tileType == 2 || tileType == 5 || tileType == 6) {
                 // 横断歩道
                 if (crosswalkFlag) {
-                    std::cout << "横断歩道発見" << std::endl;
+                    if(STD_OUT) std::cout << "横断歩道発見" << std::endl;
                     changePhase("crosswalk");
                 }
             }
@@ -1037,7 +1047,7 @@ namespace autorace{
                 setNextTile();
             } else if (tileType == 2 || tileType == 5 || tileType == 6) {
                 // 横断歩道
-                std::cout << "横断歩道発見" << std::endl;
+                if(STD_OUT) std::cout << "横断歩道発見" << std::endl;
                 changePhase("crosswalk");
             } else {
                 if (tileType == 7) { // T字路
@@ -1094,7 +1104,7 @@ namespace autorace{
                     if (nextDirection == 1) {
                         intersectionAfterCrosswalk = true;
                         nowIntersectionCount++;
-                        std::cout << "十字路を右に曲がる" << std::endl;
+                        if(STD_OUT) std::cout << "十字路を右に曲がる" << std::endl;
                         now_dir = (now_dir + 1) % 4;
                         changePhase("turn_right");
                         setNextTile();
@@ -1379,8 +1389,8 @@ namespace autorace{
             twist.angular.z = LEFT_CURVE_ROT + (BIRDSEYE_LENGTH * (1 + RUN_LINE) - temp_detect_line) / 100;
 
             system("clear");
-            cout << "default : " << LEFT_CURVE_VEL << endl;
-            cout << "this : " << (BIRDSEYE_LENGTH * (1 + RUN_LINE) - temp_detect_line) / 100 << endl;
+            if(STD_OUT) cout << "default : " << LEFT_CURVE_VEL << endl;
+            if(STD_OUT) cout << "this : " << (BIRDSEYE_LENGTH * (1 + RUN_LINE) - temp_detect_line) / 100 << endl;
 
             limitedTwistPub();
         }
@@ -1444,7 +1454,7 @@ namespace autorace{
                                 // 現在のLEFT_CURVE_VEL, LEFT_CURVE_ROTを補正する。
                                 if (temp_detect_line == 0) {
                                     temp_detect_line = left_lines[i][0] - (BIRDSEYE_LENGTH * 0.7 - left_lines[i][1]) * (left_lines[i][2] - left_lines[i][0]) / (left_lines[i][1] - left_lines[i][3]);
-                                    std::cout << "temp_detect_line   " <<  temp_detect_line << std::endl;
+                                    if(STD_OUT) std::cout << "temp_detect_line   " <<  temp_detect_line << std::endl;
                                 } else {
                                     double temp = left_lines[i][0] - (BIRDSEYE_LENGTH * 0.7 - left_lines[i][1]) * (left_lines[i][2] - left_lines[i][0]) / (left_lines[i][1] - left_lines[i][3]);
                                     if (abs(runLine - temp) < abs(runLine - temp_detect_line)) {
@@ -1623,7 +1633,7 @@ namespace autorace{
                     }
                 }
             }
-            std::cout << "ラインX = " << detected_line_x << std::endl;
+            if(STD_OUT) std::cout << "ラインX = " << detected_line_x << std::endl;
             detected_line_x = temp_detected_line;
         }
 
@@ -1704,7 +1714,7 @@ namespace autorace{
                 limitedTwistPub();
                 return;
             }
-            std::cout << "line search" << std::endl;
+            if(STD_OUT) std::cout << "line search" << std::endl;
 
 
             // 三秒ごとに首を振る向きを変える
@@ -1719,7 +1729,7 @@ namespace autorace{
                 twist.angular.z = -0.3;
             } else {
                 phaseStartTime = ros::Time::now();
-                std::cout << "one more search" << std::endl;
+                if(STD_OUT) std::cout << "one more search" << std::endl;
             }
 
             limitedTwistPub();
@@ -1742,7 +1752,7 @@ namespace autorace{
                 limitedTwistPub();
                 return;
             }
-            std::cout << "now search right_lane_right_T " << std::endl;
+            if(STD_OUT) std::cout << "now search right_lane_right_T " << std::endl;
 
             // 三秒ごとに首を振る向きを変える
             if (now - phaseStartTime < ros::Duration(3.0)) {
@@ -1756,7 +1766,7 @@ namespace autorace{
                 twist.angular.z = 0.3;
             } else {
                 phaseStartTime = ros::Time::now();
-                std::cout << "Right Lane one more search" << std::endl;
+                if(STD_OUT) std::cout << "Right Lane one more search" << std::endl;
             }
             limitedTwistPub();
         }
@@ -1923,7 +1933,7 @@ namespace autorace{
                     compare.timeStamp = ros::Time::now();
                     *itr = compare;
                     findObj = true;
-                    std::cout << objType << " update object cnt = " << compare.findCnt << std::endl;
+                    if(STD_OUT) std::cout << objType << " update object cnt = " << compare.findCnt << std::endl;
                     break;
                 }
                 itr++;
@@ -1982,7 +1992,7 @@ namespace autorace{
             // cv::bitwise_and(redRoi, redRoi, red_image, red_mask1 + red_mask2);
 
             int fractionNum = cv::countNonZero(red_mask1 + red_mask2);
-            cout << "SEARCH RED OBJECT !!!!! fractionNum :" << fractionNum << endl;
+            if(STD_OUT) cout << "SEARCH RED OBJECT !!!!! fractionNum :" << fractionNum << endl;
             if (fractionNum > 100 && RED_OBJ_SEARCH) {
                 Right_LED = true;
             } else {
@@ -1995,7 +2005,7 @@ namespace autorace{
                 if (tileType == 7 && nextDirection == 0) {
                     setNextTile(); // T字路直進の場合スキップ
                     nowIntersectionCount++;
-                    cout << "Skip Tile!!!! next TileType = " << tileType << "!  nextDirection = " << nextDirection << endl;
+                    if(STD_OUT) cout << "Skip Tile!!!! next TileType = " << tileType << "!  nextDirection = " << nextDirection << endl;
                 }
                 changePhase("find_obs");
             }
@@ -2011,7 +2021,7 @@ namespace autorace{
             // cv::bitwise_and(redRoi, redRoi, red_image, red_mask1 + red_mask2);
 
             int fractionNum = cv::countNonZero(skin_mask);
-            cout << "FIGUREE !!!!! fractionNum :" << fractionNum << endl;
+            if(STD_OUT) cout << "FIGUREE !!!!! fractionNum :" << fractionNum << endl;
 
             if (findFigureFlag) {
                 if (ros::Time::now() - phaseStartTime > ros::Duration(20.0) || fractionNum < 500 && FIGURE_SEARCH) {
@@ -2051,7 +2061,7 @@ namespace autorace{
             }
 
             int fractionNum = cv::countNonZero(skin_mask);
-            std::cout << "肌色成分 : " << fractionNum << std::endl;
+            if(STD_OUT) std::cout << "肌色成分 : " << fractionNum << std::endl;
 
             // BGS
             bgs->apply(image, bgmask);
@@ -2148,7 +2158,7 @@ namespace autorace{
             }
 
 
-            std::cout << "現在" << searchType << "検索中" << std::endl;
+            if(STD_OUT) std::cout << "現在" << searchType << "検索中" << std::endl;
 
             double maxVal;
             cv::Mat result;
@@ -2165,11 +2175,11 @@ namespace autorace{
                 cv::matchTemplate(searchRoi, template_rot, result, cv::TM_CCORR_NORMED);
                 cv::Point maxPt;
                 cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
-                std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
+                if(STD_OUT) std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
                 // cv::rectangle(aroundDebug, cv::Point(searchLeftX + maxPt.x, maxPt.y), cv::Point(searchLeftX + maxPt.x + template_right_T.cols, maxPt.y + template_right_T.rows), cv::Scalar(255 * maxVal, 255 * maxVal, 255 * maxVal), 2, 8, 0);
                 if (maxVal > DETECT_TEMPLATE_RATE) {
                     addObject(searchType, searchLeftX + maxPt.x  + template_right_T.cols / 2, maxPt.y + template_right_T.rows);
-                    std::cout << searchType << " find! y(bottom) =  " << maxPt.y + template_img.rows << std::endl;
+                    if(STD_OUT) std::cout << searchType << " find! y(bottom) =  " << maxPt.y + template_img.rows << std::endl;
                     find = true;
                 }
             }
@@ -2200,7 +2210,7 @@ namespace autorace{
             cv::matchTemplate(aroundWhiteBinary, template_rot, result, cv::TM_CCORR_NORMED);
             cv::Point maxPt;
             cv::minMaxLoc(result, 0, &maxVal, 0, &maxPt);
-            std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
+            if(STD_OUT) std::cout << "一致度　= " << maxVal << " | 位置　x = " << maxPt.x + template_img.cols / 2 << "  y = " << maxPt.y + template_img.rows / 2 << std::endl;
             if (maxVal > 0.75) {
                 if (DEBUG) {
                     cv::rectangle(aroundDebug, cv::Point(maxPt.x, maxPt.y),
@@ -2217,8 +2227,8 @@ namespace autorace{
             for (itr = objects.begin(); itr != objects.end();) {
                 OBJECT obj = *itr;
 
-                std::cout << objCnt << " Type" << obj.objType << std::endl;
-                std::cout << "検知回数 : " << obj.findCnt << " |  y =  " << obj.beforeY << std::endl;
+                if(STD_OUT) std::cout << objCnt << " Type" << obj.objType << std::endl;
+                if(STD_OUT) std::cout << "検知回数 : " << obj.findCnt << " |  y =  " << obj.beforeY << std::endl;
 
                 itr++;
                 objCnt++;
