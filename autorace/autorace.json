@@ -1,7 +1,7 @@
 {
   "autorace": {
     "next_x": 0,
-    "next_y": 1,
+    "next_y": 0,
     "start_dir": 2,
     "//": "trace_right_curve, search_line, search_right_lane_right_T, turn_left, turn_right, crosswalk",
     "sw_change_phase": "find_obs",
@@ -60,6 +60,6 @@
     "skin_low_v": 60,
     "detect_template_rate": 0.8,
     "red_detect_num": 250,
-    "std_out": false
+    "std_out": true
   }
 }

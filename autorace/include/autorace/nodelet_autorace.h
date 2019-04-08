@@ -598,14 +598,14 @@ namespace autorace{
                         // searchRedObs(birds_eye);
                         // if (now_phase == "straight" && FIGURE_SEARCH)searchFigure(birds_eye);
                         // intersectionDetectionByTemplateMatching(aroundWhiteBinary, degree_average);
-                        crosswalkRedStop();
                         searchObject();
                         lineTrace(degree_average, road_white_binary);
+                        crosswalkRedStop();
                         limitedTwistPub();
                     }
                 } else if (now_phase == "trace_right_curve") {
                     rightCurveTrace(road_white_binary);
-                } else if (now_phase == "1") {
+                } else if (now_phase == "search_line") {
                     double degree_average = detectLane(left_roi);
                     searchLine();
                 } else if (now_phase == "search_right_lane_right_T") {
@@ -991,29 +991,10 @@ namespace autorace{
         void searchObject() {
             ros::Time now = ros::Time::now();
 
-            // タイルの種類 1~8がそれぞれFPTのroad meshに対応
-            int tileType = map_data[next_tile_y][next_tile_x][0];
-
-            // タイルの回転 1が画像通りで0~3で表している
-            int tileRot = map_data[next_tile_y][next_tile_x][1];
-
-            // タイルと入射角の差　どの方角からタイルに侵入するかを判別
-            int differenceDirection = (tileRot - now_dir + 4) % 4;
-            // 交差点で次にどの方角へ向かうかが決められているので、それと現在の方角の差をとるために使う
-            int nextDirection = now_dir;
-
-            // 2tile_demol
-            if (tileType == 1) {
-                if (now - line_lost_time > ros::Duration(RIGHT_CURVE_START_LOST_LINE_TIME)) {
+            if (now - line_lost_time > ros::Duration(RIGHT_CURVE_START_LOST_LINE_TIME)) {
                     changePhase("u_turn");
-                }
-            } else if (tileType == 2 || tileType == 5 || tileType == 6) {
-                // 横断歩道
-                if (crosswalkFlag) {
-                    if(STD_OUT) std::cout << "横断歩道発見" << std::endl;
-                    changePhase("crosswalk");
-                }
             }
+
         }
 
         // デバッグ用、次のタイルをスキップする
@@ -1208,9 +1189,6 @@ namespace autorace{
                     changePhase("straight");
                     twist.linear.x = 0.8;
                 }
-            } else {
-                changePhase("straight");
-                twist.linear.x = 1.0;
             }
         }
 
