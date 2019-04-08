@@ -3,7 +3,7 @@
     "cross_signal_range_sx": 140,
     "cross_signal_range_sy": 40,
     "cross_signal_range_ex": 310,
-    "cross_signal_range_ey": 120,
+    "cross_signal_range_ey": 160,
     "cross_signal_x_step": 15,
     "cross_signal_y_step": 8,
     "cross_signal_height_upper": 80,
