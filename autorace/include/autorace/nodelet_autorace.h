@@ -1190,7 +1190,7 @@ namespace autorace{
             int differenceDirection = (tileRot - now_dir + 4) % 4;
 
             std_msgs::String how_signal_search;
-            how_signal_search.data = "1";
+            how_signal_search.data = "0";
 
             signal_search_.publish(how_signal_search);
         }
