@@ -940,7 +940,7 @@ namespace autorace{
             // 垂直に近い点のみ線を引く
             for (size_t i = 0; i < left_lines.size(); i++) {
                 STRAIGHT left_line = toStraightStruct(left_lines[i]);
-                if (left_line.degree < 30 && left_line.degree > -30) {
+                if (left_line.degree < 20 && left_line.degree > -20) {
 
                     if (DEBUG) {
                         cv::line(aroundDebug, cv::Point(left_lines[i][0] + BIRDSEYE_LENGTH / 2, left_lines[i][1]),
@@ -1632,7 +1632,7 @@ namespace autorace{
                 } else {
                     twist.linear.x += 0.02;
                 }
-                if (degree_average < -10 || degree_average > 10) {
+                if (degree_average < -3 || degree_average > 3) {
                     // 角度平均が-5以上なら左に曲がる、5以上なら右に曲がる
                     twist.angular.z = degree_average * -0.01;
                 }
