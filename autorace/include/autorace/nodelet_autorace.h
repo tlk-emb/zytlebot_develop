@@ -635,7 +635,7 @@ namespace autorace{
                 searchFigure(birds_eye);
             }
 
-            // ---------------controller end----------------
+            // --------------- end----------------
             if(STD_OUT) {
                 std::cout << "走行距離 : " << mileage << " 合計 " << phaseRunMileage << std::endl;
                 std::cout << "実行時間 : " << ros::Time::now().toSec() - processingStartTime.toSec() << "s"
@@ -1518,15 +1518,15 @@ namespace autorace{
             { // 右車線に向けて直進
                 twist.linear.x = AVOID_OBSTACLE_VEL;
                 twist.angular.z = 0;
-            } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT))
+            } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT - AVOID_STRAIGHT_TIME))
             { // 右車線に対して水平になるように回転
                 twist.linear.x = AVOID_OBSTACLE_VEL;
                 twist.angular.z = AVOID_OBSTACLE_ROT;
                 Right_LED = false; // LED
-            } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT + AVOID_BEFORE_STRAIGHT_MARGIN_TIME))
+            } else if(now - phaseStartTime <  ros::Duration(AVOID_ROT_TIME * 2 + AVOID_ROT_STRAIGHT - AVOID_STRAIGHT_TIME + AVOID_BEFORE_STRAIGHT_MARGIN_TIME))
             { // 直進向く寸前に反動を消す
                 twist.linear.x = AVOID_OBSTACLE_VEL;
-                twist.angular.z = AVOID_OBSTACLE_ROT / 5;
+                twist.angular.z = AVOID_OBSTACLE_ROT / 5 * -1;
             } else {
                 changePhase("search_line");
             }
